@@ -27,7 +27,7 @@ export default function LoginPage() {
     setSuccessMsg(null);
 
     if (!email.trim()) {
-      setErrorMsg('Informe seu e-mail de acesso.');
+      setErrorMsg('Informe seu usuário ou e-mail de acesso.');
       return;
     }
 
@@ -117,7 +117,7 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
             <label htmlFor="admin-email" className="block text-sm font-medium text-stone-700">
-              E-mail
+              {mode === 'login' ? 'Usuário ou E-mail' : 'E-mail cadastrado'}
             </label>
             <div className="relative mt-1.5">
               <Mail
@@ -126,14 +126,15 @@ export default function LoginPage() {
               />
               <input
                 id="admin-email"
-                name="email"
-                type="email"
+                name="username"
+                type={mode === 'login' ? 'text' : 'email'}
                 required
-                autoComplete="email"
-                inputMode="email"
+                autoComplete={mode === 'login' ? 'username' : 'email'}
+                autoCapitalize="none"
+                autoCorrect="off"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="voce@veluna.com.br"
+                placeholder={mode === 'login' ? 'thacilla ou seu@email.com' : 'voce@veluna.com.br'}
                 className="h-12 w-full rounded-2xl border border-stone-200 bg-stone-50 pl-10 pr-4 text-sm text-stone-900 outline-none transition focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/20"
               />
             </div>

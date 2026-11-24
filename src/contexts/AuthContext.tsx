@@ -15,6 +15,13 @@ const UNAUTHORIZED_ADMIN_ERROR =
   'Este e-mail não possui permissão de administradora na Veluna Cosméticos.';
 const SUPABASE_MISSING_ERROR =
   'Supabase ainda não configurado. Preencha VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no arquivo .env.';
+const ADMIN_LOGIN_DOMAIN = 'veluna.nexusistemas.com.app';
+
+export function normalizeAdminIdentifier(rawInput: string): string {
+  const cleaned = rawInput.trim().toLowerCase();
+  if (!cleaned) return '';
+  return cleaned.includes('@') ? cleaned : `${cleaned}@${ADMIN_LOGIN_DOMAIN}`;
+}
 
 interface AuthActionResult {
   error: string | null;
@@ -125,7 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!isSupabaseConfigured) return { error: SUPABASE_MISSING_ERROR };
 
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: normalizeAdminIdentifier(email),
         password,
       });
 
@@ -152,7 +159,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const sendPasswordReset = useCallback(async (email: string): Promise<AuthActionResult> => {
     if (!isSupabaseConfigured) return { error: SUPABASE_MISSING_ERROR };
     const redirectTo = `${window.location.origin}/#/painel/redefinir-senha`;
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      normalizeAdminIdentifier(email),
+      { redirectTo },
+    );
     return { error: error ? translateAuthError(error.message) : null };
   }, []);
 
