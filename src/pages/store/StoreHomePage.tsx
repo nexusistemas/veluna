@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ShoppingBag, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import HeroBannerCarousel from '../../components/store/HeroBannerCarousel';
 import ProductCard from '../../components/store/ProductCard';
 import StoreFooter from '../../components/store/StoreFooter';
 import StoreHeader from '../../components/store/StoreHeader';
-import { useCart } from '../../contexts/CartContext';
-import { formatBRL } from '../../lib/formatters';
 import {
   fetchStorefrontCatalog,
   type StorefrontCatalogData,
@@ -28,7 +26,6 @@ function ProductSection({ title, products }: { title: string; products: Storefro
 }
 
 export default function StoreHomePage() {
-  const { totalItems, subtotal, discountAmount, openCart } = useCart();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [catalog, setCatalog] = useState<StorefrontCatalogData>({
@@ -207,21 +204,6 @@ export default function StoreHomePage() {
           </div>
         )}
       </main>
-
-      {totalItems > 0 && (
-        <div className="fixed bottom-3 inset-x-3 z-30 md:hidden">
-          <button
-            type="button"
-            onClick={openCart}
-            className="flex min-h-[52px] w-full items-center justify-between rounded-2xl bg-brand px-4 text-sm font-bold text-white shadow-xl active:scale-[0.99]"
-          >
-            <span className="flex items-center gap-2">
-              <ShoppingBag className="h-5 w-5" /> Ver Sacola • {totalItems} {totalItems === 1 ? 'item' : 'itens'}
-            </span>
-            <span>{formatBRL(Math.max(0, subtotal - discountAmount))}</span>
-          </button>
-        </div>
-      )}
 
       <StoreFooter />
     </div>
