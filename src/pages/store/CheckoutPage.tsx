@@ -1,49 +1,34 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, ShoppingBag } from 'lucide-react';
-import CheckoutCustomerSection, {
-  type CheckoutCustomerFields,
-} from '../../components/store/CheckoutCustomerSection';
-import CheckoutShippingForm, {
-  type CheckoutAddressFields,
-} from '../../components/store/CheckoutShippingForm';
+import CheckoutCustomerBanner from '../../components/store/CheckoutCustomerBanner';
+import CheckoutCustomerSection, { type CheckoutCustomerFields } from '../../components/store/CheckoutCustomerSection';
+import CheckoutShippingForm, { type CheckoutAddressFields } from '../../components/store/CheckoutShippingForm';
 import CheckoutSummaryCard from '../../components/store/CheckoutSummaryCard';
 import StoreHeader from '../../components/store/StoreHeader';
+import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
 import { useStoreSettings } from '../../contexts/StoreSettingsContext';
-import { onlyDigits } from '../../lib/formatters';
-import { cleanCep } from '../../lib/geoCep';
+import { formatPhoneBR, onlyDigits } from '../../lib/formatters';
+import { cleanCep, formatCep } from '../../lib/geoCep';
+import { saveMyCustomerProfile } from '../../services/customerAccountService';
 import { listActiveDeliveryZonesPublic } from '../../services/logisticsAdminService';
-import {
-  calculateShippingQuote,
-  type ShippingCalculationResult,
-} from '../../services/shippingService';
+import { calculateShippingQuote, type ShippingCalculationResult } from '../../services/shippingService';
 import { submitStoreOrder } from '../../services/storePublicService';
 import { triggerAutoWhatsappNotification } from '../../services/whatsappService';
+import type { CustomerProfile } from '../../types/customer';
 import type { DeliveryZone, FulfillmentType, PaymentMethod } from '../../types/database';
 
 const EMPTY_CUSTOMER: CheckoutCustomerFields = { name: '', phone: '', email: '', cpf: '', notes: '' };
-const EMPTY_ADDR: CheckoutAddressFields = {
-  street: '',
-  number: '',
-  complement: '',
-  neighborhood: '',
-  city: '',
-  state: '',
-};
+const EMPTY_ADDR: CheckoutAddressFields = { street: '', number: '', complement: '', neighborhood: '', city: '', state: '' };
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { settings } = useStoreSettings();
   const {
-    items,
-    subtotal,
-    discountAmount,
-    appliedCoupon,
-    applyCouponCode,
-    removeCoupon,
-    isFreeShippingCoupon,
-    clearCart,
+    items, subtotal, discountAmount, appliedCoupon,
+    applyCouponCode, removeCoupon, isFreeShippingCoupon, clearCart,
   } = useCart();
 
   const [customer, setCustomer] = useState<CheckoutCustomerFields>(EMPTY_CUSTOMER);
@@ -53,6 +38,8 @@ export default function CheckoutPage() {
   const [cep, setCep] = useState('');
   const [address, setAddress] = useState<CheckoutAddressFields>(EMPTY_ADDR);
   const [activeZones, setActiveZones] = useState<DeliveryZone[]>([]);
+  const [zonesLoaded, setZonesLoaded] = useState(false);
+  const [pendingAutoCep, setPendingAutoCep] = useState<string | null>(null);
   const [shippingResult, setShippingResult] = useState<ShippingCalculationResult | null>(null);
   const [calculatingCep, setCalculatingCep] = useState(false);
   const [shippingError, setShippingError] = useState<string | null>(null);
@@ -64,46 +51,78 @@ export default function CheckoutPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
-    listActiveDeliveryZonesPublic().then(setActiveZones).catch(() => {});
+    listActiveDeliveryZonesPublic()
+      .then(setActiveZones)
+      .catch(() => {})
+      .finally(() => setZonesLoaded(true));
   }, []);
 
-  const handleCalculateCep = async (overrideCep?: string) => {
-    const targetCep = overrideCep ?? cep;
-    setShippingError(null);
-    setCalculatingCep(true);
-    try {
-      const quote = await calculateShippingQuote({
-        rawCep: targetCep,
-        subtotal,
-        settings,
-        activeZones,
-      });
-      setShippingResult(quote);
-      if (quote.address) {
-        setAddress((prev) => ({
-          ...prev,
-          street: quote.address?.street || prev.street,
-          neighborhood: quote.address?.neighborhood || prev.neighborhood,
-          city: quote.address?.city || prev.city,
-          state: quote.address?.state || prev.state,
-        }));
+  const handleCalculateCep = useCallback(
+    async (overrideCep?: string) => {
+      const targetCep = overrideCep ?? cep;
+      setShippingError(null);
+      setCalculatingCep(true);
+      try {
+        const quote = await calculateShippingQuote({ rawCep: targetCep, subtotal, settings, activeZones });
+        setShippingResult(quote);
+        if (quote.address) {
+          setAddress((prev) => ({
+            ...prev,
+            street: prev.street || quote.address?.street || '',
+            neighborhood: prev.neighborhood || quote.address?.neighborhood || '',
+            city: prev.city || quote.address?.city || '',
+            state: prev.state || quote.address?.state || '',
+          }));
+        }
+      } catch (err) {
+        setShippingResult(null);
+        setShippingError(err instanceof Error ? err.message : 'Erro ao consultar CEP.');
+      } finally {
+        setCalculatingCep(false);
       }
-    } catch (err) {
-      setShippingResult(null);
-      setShippingError(err instanceof Error ? err.message : 'Erro ao consultar CEP.');
-    } finally {
-      setCalculatingCep(false);
+    },
+    [cep, subtotal, settings, activeZones],
+  );
+
+  useEffect(() => {
+    if (!zonesLoaded || !pendingAutoCep) return;
+    const cepToRun = pendingAutoCep;
+    setPendingAutoCep(null);
+    if (fulfillmentType === 'delivery') {
+      void handleCalculateCep(cepToRun);
     }
-  };
+  }, [zonesLoaded, pendingAutoCep, fulfillmentType, handleCalculateCep]);
+
+  const handleProfileLoaded = useCallback((profile: CustomerProfile) => {
+    setCustomer((prev) => ({
+      ...prev,
+      name: prev.name || profile.full_name,
+      phone: prev.phone || formatPhoneBR(profile.whatsapp),
+      email: prev.email || profile.email,
+      cpf: prev.cpf || profile.cpf,
+    }));
+    setAddress((prev) => ({
+      street: prev.street || profile.street,
+      number: prev.number || profile.number,
+      complement: prev.complement || profile.complement,
+      neighborhood: prev.neighborhood || profile.neighborhood,
+      city: prev.city || profile.city,
+      state: prev.state || profile.state,
+    }));
+    const savedCep = cleanCep(profile.cep);
+    if (savedCep.length === 8) {
+      const formatted = formatCep(savedCep);
+      setCep((prev) => prev || formatted);
+      setPendingAutoCep(formatted);
+    }
+  }, []);
 
   const deliveryOption = shippingResult?.options.find((o) => o.fulfillmentType === 'delivery');
   const effectiveShippingFee =
     fulfillmentType === 'pickup'
       ? 0
       : deliveryOption
-        ? deliveryOption.isFreeShipping || isFreeShippingCoupon
-          ? 0
-          : deliveryOption.fee
+        ? deliveryOption.isFreeShipping || isFreeShippingCoupon ? 0 : deliveryOption.fee
         : 0;
   const grandTotal = Math.max(0, subtotal - discountAmount + effectiveShippingFee);
 
@@ -117,12 +136,10 @@ export default function CheckoutPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmitError(null);
-
     if (!customer.name.trim() || onlyDigits(customer.phone).length < 10) {
       setSubmitError('Informe seu nome completo e um WhatsApp válido com DDD.');
       return;
     }
-
     if (fulfillmentType === 'delivery') {
       if (cleanCep(cep).length !== 8 || !deliveryOption) {
         setSubmitError('Calcule um CEP atendido para entrega ou escolha Retirar na Loja.');
@@ -156,11 +173,18 @@ export default function CheckoutPage() {
         notes: customer.notes.trim() || null,
         items: items.map((item) => ({ variant_id: item.variantId, quantity: item.quantity })),
       });
+      if (user) {
+        void saveMyCustomerProfile({
+          user_id: user.id, full_name: customer.name.trim(),
+          email: customer.email.trim() || user.email || '', whatsapp: onlyDigits(customer.phone),
+          cpf: onlyDigits(customer.cpf), cep: cleanCep(cep),
+          street: address.street.trim(), number: address.number.trim(), complement: address.complement.trim(),
+          neighborhood: address.neighborhood.trim(), city: address.city.trim(), state: address.state.trim().toUpperCase(),
+        }).catch(() => {});
+      }
       triggerAutoWhatsappNotification(created.order_id, created.public_access_token, 'order_created');
       clearCart();
-      navigate(`/pedido/${created.order_id}?token=${encodeURIComponent(created.public_access_token)}`, {
-        replace: true,
-      });
+      navigate(`/pedido/${created.order_id}?token=${encodeURIComponent(created.public_access_token)}`, { replace: true });
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Não foi possível finalizar o pedido.');
     } finally {
@@ -192,49 +216,26 @@ export default function CheckoutPage() {
           <ArrowLeft className="h-4 w-4" /> Continuar comprando
         </Link>
         <h1 className="text-2xl font-extrabold text-stone-900 mb-4">Finalizar Pedido</h1>
-
+        <CheckoutCustomerBanner onProfileLoaded={handleProfileLoaded} />
         {submitError && (
           <div role="alert" className="mb-4 flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-3.5 text-sm text-rose-800">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>{submitError}</span>
           </div>
         )}
-
         <form onSubmit={handleSubmit} className="space-y-4">
-          <CheckoutCustomerSection
-            customer={customer}
-            onChange={(p) => setCustomer((prev) => ({ ...prev, ...p }))}
-          />
+          <CheckoutCustomerSection customer={customer} onChange={(p) => setCustomer((prev) => ({ ...prev, ...p }))} />
           <CheckoutShippingForm
-            settings={settings}
-            fulfillmentType={fulfillmentType}
-            onFulfillmentChange={setFulfillmentType}
-            cep={cep}
-            onCepChange={setCep}
-            address={address}
-            onAddressChange={(p) => setAddress((prev) => ({ ...prev, ...p }))}
-            shippingResult={shippingResult}
-            calculating={calculatingCep}
-            shippingError={shippingError}
-            onCalculateCep={(c) => void handleCalculateCep(c)}
-            isFreeShippingCoupon={isFreeShippingCoupon}
+            settings={settings} fulfillmentType={fulfillmentType} onFulfillmentChange={setFulfillmentType}
+            cep={cep} onCepChange={setCep} address={address} onAddressChange={(p) => setAddress((prev) => ({ ...prev, ...p }))}
+            shippingResult={shippingResult} calculating={calculatingCep} shippingError={shippingError}
+            onCalculateCep={(c) => void handleCalculateCep(c)} isFreeShippingCoupon={isFreeShippingCoupon}
           />
           <CheckoutSummaryCard
-            items={items}
-            subtotal={subtotal}
-            discountAmount={discountAmount}
-            shippingFee={effectiveShippingFee}
-            grandTotal={grandTotal}
-            fulfillmentType={fulfillmentType}
-            paymentMethod={paymentMethod}
-            onPaymentChange={setPaymentMethod}
-            appliedCoupon={appliedCoupon}
-            couponInput={couponInput}
-            onCouponInputChange={setCouponInput}
-            onApplyCoupon={() => void handleApplyCoupon()}
-            onRemoveCoupon={removeCoupon}
-            couponMsg={couponMsg}
-            submitting={submitting}
+            items={items} subtotal={subtotal} discountAmount={discountAmount} shippingFee={effectiveShippingFee}
+            grandTotal={grandTotal} fulfillmentType={fulfillmentType} paymentMethod={paymentMethod} onPaymentChange={setPaymentMethod}
+            appliedCoupon={appliedCoupon} couponInput={couponInput} onCouponInputChange={setCouponInput}
+            onApplyCoupon={() => void handleApplyCoupon()} onRemoveCoupon={removeCoupon} couponMsg={couponMsg} submitting={submitting}
           />
         </form>
       </main>

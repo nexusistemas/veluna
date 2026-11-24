@@ -35,6 +35,8 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   pix_receiver_name: null,
   mp_public_key: null,
   whatsapp_auto_enabled: false,
+  google_auth_enabled: true,
+  apple_auth_enabled: false,
   updated_at: '',
 };
 
@@ -60,6 +62,8 @@ function coerceSettingsRow(raw: Partial<StoreSettings>): StoreSettings {
         ? Number(merged.free_shipping_min)
         : null,
     whatsapp_auto_enabled: Boolean(merged.whatsapp_auto_enabled),
+    google_auth_enabled: merged.google_auth_enabled ?? true,
+    apple_auth_enabled: Boolean(merged.apple_auth_enabled),
   };
 }
 

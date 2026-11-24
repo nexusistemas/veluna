@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Instagram, MessageCircle, Search, ShoppingBag, Sparkles, X } from 'lucide-react';
+import { Instagram, MessageCircle, Search, ShoppingBag, Sparkles, User, X } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
 import { useStoreSettings } from '../../contexts/StoreSettingsContext';
 import { onlyDigits } from '../../lib/formatters';
@@ -18,12 +19,19 @@ export default function StoreHeader({
 }: StoreHeaderProps) {
   const { settings } = useStoreSettings();
   const { totalItems, openCart } = useCart();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [localQuery, setLocalQuery] = useState(searchQuery ?? '');
 
   const currentSearch = onSearchChange ? (searchQuery ?? '') : localQuery;
   const whatsappDigits = onlyDigits(settings.whatsapp_number ?? '');
   const instagramClean = (settings.instagram_handle ?? '').replace(/^@/, '').trim();
+
+  const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
+  const fullName = String(meta.full_name ?? meta.name ?? '').trim();
+  const firstName = fullName.split(/\s+/)[0] || user?.email?.split('@')[0] || 'Conta';
+  const avatarUrl = String(meta.avatar_url ?? meta.picture ?? '').trim();
+  const initial = firstName.charAt(0).toUpperCase() || 'V';
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -44,7 +52,7 @@ export default function StoreHeader({
   return (
     <header className="sticky top-0 z-30 border-b border-brand-100 bg-white/95 backdrop-blur">
       <div className="mx-auto max-w-6xl px-3.5 py-2.5 sm:px-5">
-        <div className="flex items-center justify-between gap-2.5">
+        <div className="flex items-center justify-between gap-2">
           <Link to="/" className="flex items-center gap-2.5 min-w-0">
             {settings.logo_url ? (
               <img
@@ -72,7 +80,7 @@ export default function StoreHeader({
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Instagram da loja"
-                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-stone-200 bg-white text-stone-600 transition hover:border-brand-200 hover:text-brand"
+                className="hidden sm:flex h-11 w-11 items-center justify-center rounded-2xl border border-stone-200 bg-white text-stone-600 transition hover:border-brand-200 hover:text-brand"
               >
                 <Instagram className="h-4 w-4" />
               </a>
@@ -88,6 +96,33 @@ export default function StoreHeader({
                 <MessageCircle className="h-4 w-4" />
               </a>
             )}
+            <Link
+              to="/minha-conta"
+              aria-label={user ? `Minha conta (${firstName})` : 'Entrar na minha conta'}
+              className="flex h-11 min-w-[44px] items-center justify-center gap-1.5 rounded-2xl border border-stone-200 bg-white px-2.5 text-xs font-semibold text-stone-700 transition hover:border-brand-200 hover:text-brand"
+            >
+              {user ? (
+                <>
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={firstName}
+                      className="h-6 w-6 shrink-0 rounded-full object-cover border border-brand-100"
+                    />
+                  ) : (
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-[11px] font-bold text-brand">
+                      {initial}
+                    </span>
+                  )}
+                  <span className="max-w-[76px] truncate hidden xs:inline sm:inline">{firstName}</span>
+                </>
+              ) : (
+                <>
+                  <User className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>Entrar</span>
+                </>
+              )}
+            </Link>
             <button
               type="button"
               onClick={openCart}

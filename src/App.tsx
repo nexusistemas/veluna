@@ -2,6 +2,7 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import AdminLayout from './components/admin/AdminLayout';
 import ProtectedRoute from './components/admin/ProtectedRoute';
 import CartDrawer from './components/store/CartDrawer';
+import OAuthRedirectListener from './components/store/OAuthRedirectListener';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { StoreSettingsProvider } from './contexts/StoreSettingsContext';
@@ -18,6 +19,7 @@ import ProductsListPage from './pages/admin/ProductsListPage';
 import ResetPasswordPage from './pages/admin/ResetPasswordPage';
 import SettingsPage from './pages/admin/SettingsPage';
 import CheckoutPage from './pages/store/CheckoutPage';
+import CustomerAccountPage from './pages/store/CustomerAccountPage';
 import OrderConfirmationPage from './pages/store/OrderConfirmationPage';
 import ProductDetailPage from './pages/store/ProductDetailPage';
 import StoreHomePage from './pages/store/StoreHomePage';
@@ -27,12 +29,14 @@ export default function App() {
     <HashRouter>
       <StoreSettingsProvider>
         <AuthProvider>
+          <OAuthRedirectListener />
           <CartProvider>
             <CartDrawer />
             <Routes>
               <Route path="/" element={<StoreHomePage />} />
               <Route path="/produto/:slug" element={<ProductDetailPage />} />
               <Route path="/checkout" element={<CheckoutPage />} />
+              <Route path="/minha-conta" element={<CustomerAccountPage />} />
               <Route path="/pedido/:id" element={<OrderConfirmationPage />} />
 
               <Route path="/painel/login" element={<LoginPage />} />

@@ -41,6 +41,8 @@ export interface StoreSettings {
   pix_receiver_name: string | null;
   mp_public_key: string | null;
   whatsapp_auto_enabled: boolean;
+  google_auth_enabled: boolean;
+  apple_auth_enabled: boolean;
   updated_at: string;
 }
 export interface PrivateSecrets {
@@ -155,6 +157,7 @@ export interface Order {
   mp_pix_qr_base64: string | null;
   mp_pix_qr_code: string | null;
   customer_name: string;
+  customer_user_id?: string | null;
   customer_phone: string | null;
   customer_email: string | null;
   customer_cpf: string | null;

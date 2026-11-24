@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, Loader2, Settings } from 'lucide-react';
+import CustomerAuthConfigCard from '../../components/admin/settings/CustomerAuthConfigCard';
 import MercadoPagoConfigCard from '../../components/admin/settings/MercadoPagoConfigCard';
 import StoreProfileCard from '../../components/admin/settings/StoreProfileCard';
 import WhatsappAutomationCard from '../../components/admin/settings/WhatsappAutomationCard';
@@ -75,6 +76,7 @@ export default function SettingsPage() {
       ) : (
         <div className="space-y-5">
           <StoreProfileCard settings={settings} onSaved={refreshSettings} />
+          <CustomerAuthConfigCard settings={settings} onSaved={refreshSettings} />
           <MercadoPagoConfigCard
             settings={settings}
             secrets={secrets}

@@ -78,6 +78,12 @@ export async function saveGeneralStoreSettings(payload: Partial<StoreSettings>):
   if (payload.whatsapp_auto_enabled !== undefined) {
     updateBody.whatsapp_auto_enabled = Boolean(payload.whatsapp_auto_enabled);
   }
+  if (payload.google_auth_enabled !== undefined) {
+    updateBody.google_auth_enabled = Boolean(payload.google_auth_enabled);
+  }
+  if (payload.apple_auth_enabled !== undefined) {
+    updateBody.apple_auth_enabled = Boolean(payload.apple_auth_enabled);
+  }
 
   const { error } = await supabase.from('store_settings').update(updateBody).eq('id', 1);
   if (error) throw new Error(error.message);
