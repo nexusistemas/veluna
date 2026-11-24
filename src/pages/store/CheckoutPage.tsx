@@ -11,6 +11,8 @@ import { useCart } from '../../contexts/CartContext';
 import { useStoreSettings } from '../../contexts/StoreSettingsContext';
 import { formatPhoneBR, onlyDigits } from '../../lib/formatters';
 import { cleanCep, formatCep } from '../../lib/geoCep';
+import type { ResolvedGpsLocation } from '../../lib/geoMaps';
+import { buildCheckoutCustomerProfilePayload, buildOnlineOrderPayload } from '../../lib/checkoutPayload';
 import { saveMyCustomerProfile } from '../../services/customerAccountService';
 import { listActiveDeliveryZonesPublic } from '../../services/logisticsAdminService';
 import { calculateShippingQuote, type ShippingCalculationResult } from '../../services/shippingService';
@@ -58,20 +60,24 @@ export default function CheckoutPage() {
   }, []);
 
   const handleCalculateCep = useCallback(
-    async (overrideCep?: string) => {
+    async (overrideCep?: string, gpsLoc?: ResolvedGpsLocation) => {
       const targetCep = overrideCep ?? cep;
       setShippingError(null);
       setCalculatingCep(true);
       try {
-        const quote = await calculateShippingQuote({ rawCep: targetCep, subtotal, settings, activeZones });
+        const gpsAddress = gpsLoc
+          ? { cep: gpsLoc.cep, street: gpsLoc.street, neighborhood: gpsLoc.neighborhood, city: gpsLoc.city, state: gpsLoc.state, lat: gpsLoc.lat, lng: gpsLoc.lng }
+          : null;
+        const quote = await calculateShippingQuote({ rawCep: targetCep, gpsAddress, subtotal, settings, activeZones });
         setShippingResult(quote);
         if (quote.address) {
           setAddress((prev) => ({
             ...prev,
-            street: prev.street || quote.address?.street || '',
-            neighborhood: prev.neighborhood || quote.address?.neighborhood || '',
-            city: prev.city || quote.address?.city || '',
-            state: prev.state || quote.address?.state || '',
+            street: gpsLoc ? (gpsLoc.street || prev.street) : (prev.street || quote.address?.street || ''),
+            number: gpsLoc ? (gpsLoc.number || prev.number) : prev.number,
+            neighborhood: gpsLoc ? (gpsLoc.neighborhood || prev.neighborhood) : (prev.neighborhood || quote.address?.neighborhood || ''),
+            city: gpsLoc ? (gpsLoc.city || prev.city) : (prev.city || quote.address?.city || ''),
+            state: gpsLoc ? (gpsLoc.state || prev.state) : (prev.state || quote.address?.state || ''),
           }));
         }
       } catch (err) {
@@ -82,6 +88,14 @@ export default function CheckoutPage() {
       }
     },
     [cep, subtotal, settings, activeZones],
+  );
+
+  const handleGpsConfirmed = useCallback(
+    (loc: ResolvedGpsLocation) => {
+      if (loc.cep) setCep(formatCep(loc.cep));
+      void handleCalculateCep(loc.cep ? formatCep(loc.cep) : undefined, loc);
+    },
+    [handleCalculateCep],
   );
 
   useEffect(() => {
@@ -141,8 +155,8 @@ export default function CheckoutPage() {
       return;
     }
     if (fulfillmentType === 'delivery') {
-      if (cleanCep(cep).length !== 8 || !deliveryOption) {
-        setSubmitError('Calcule um CEP atendido para entrega ou escolha Retirar na Loja.');
+      if (!deliveryOption) {
+        setSubmitError('Calcule o frete pelo GPS ou CEP atendido para entrega, ou escolha Retirar na Loja.');
         return;
       }
       if (!address.street.trim() || !address.number.trim() || !address.neighborhood.trim()) {
@@ -153,34 +167,16 @@ export default function CheckoutPage() {
 
     setSubmitting(true);
     try {
-      const created = await submitStoreOrder({
-        channel: 'online',
-        fulfillment_type: fulfillmentType,
-        payment_method: paymentMethod,
-        customer_name: customer.name.trim(),
-        customer_phone: onlyDigits(customer.phone),
-        customer_email: customer.email.trim() || null,
-        customer_cpf: onlyDigits(customer.cpf) || null,
-        shipping_cep: fulfillmentType === 'delivery' ? cleanCep(cep) : null,
-        shipping_street: fulfillmentType === 'delivery' ? address.street.trim() : null,
-        shipping_number: fulfillmentType === 'delivery' ? address.number.trim() : null,
-        shipping_complement: fulfillmentType === 'delivery' ? address.complement.trim() || null : null,
-        shipping_neighborhood: fulfillmentType === 'delivery' ? address.neighborhood.trim() : null,
-        shipping_city: fulfillmentType === 'delivery' ? address.city.trim() : null,
-        shipping_state: fulfillmentType === 'delivery' ? address.state.trim().toUpperCase() : null,
-        shipping_fee: effectiveShippingFee,
-        coupon_code: appliedCoupon?.code ?? null,
-        notes: customer.notes.trim() || null,
-        items: items.map((item) => ({ variant_id: item.variantId, quantity: item.quantity })),
-      });
+      const created = await submitStoreOrder(
+        buildOnlineOrderPayload({
+          fulfillmentType, paymentMethod, customer, cep, address,
+          shippingFee: effectiveShippingFee, couponCode: appliedCoupon?.code ?? null, items,
+        }),
+      );
       if (user) {
-        void saveMyCustomerProfile({
-          user_id: user.id, full_name: customer.name.trim(),
-          email: customer.email.trim() || user.email || '', whatsapp: onlyDigits(customer.phone),
-          cpf: onlyDigits(customer.cpf), cep: cleanCep(cep),
-          street: address.street.trim(), number: address.number.trim(), complement: address.complement.trim(),
-          neighborhood: address.neighborhood.trim(), city: address.city.trim(), state: address.state.trim().toUpperCase(),
-        }).catch(() => {});
+        void saveMyCustomerProfile(
+          buildCheckoutCustomerProfilePayload({ userId: user.id, fallbackEmail: user.email || '', customer, cep, address }),
+        ).catch(() => {});
       }
       triggerAutoWhatsappNotification(created.order_id, created.public_access_token, 'order_created');
       clearCart();
@@ -229,7 +225,7 @@ export default function CheckoutPage() {
             settings={settings} fulfillmentType={fulfillmentType} onFulfillmentChange={setFulfillmentType}
             cep={cep} onCepChange={setCep} address={address} onAddressChange={(p) => setAddress((prev) => ({ ...prev, ...p }))}
             shippingResult={shippingResult} calculating={calculatingCep} shippingError={shippingError}
-            onCalculateCep={(c) => void handleCalculateCep(c)} isFreeShippingCoupon={isFreeShippingCoupon}
+            onCalculateCep={(c) => void handleCalculateCep(c)} onGpsLocationConfirmed={handleGpsConfirmed} isFreeShippingCoupon={isFreeShippingCoupon}
           />
           <CheckoutSummaryCard
             items={items} subtotal={subtotal} discountAmount={discountAmount} shippingFee={effectiveShippingFee}

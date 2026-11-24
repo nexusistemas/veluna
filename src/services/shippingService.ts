@@ -141,11 +141,12 @@ function evaluateRadiusDelivery(
 
 export async function calculateShippingQuote(params: {
   rawCep?: string;
+  gpsAddress?: ResolvedCepAddress | null;
   subtotal: number;
   settings: StoreSettings;
   activeZones: DeliveryZone[];
 }): Promise<ShippingCalculationResult> {
-  const { rawCep, subtotal, settings, activeZones } = params;
+  const { rawCep, gpsAddress, subtotal, settings, activeZones } = params;
   const options: ShippingQuoteOption[] = [];
 
   if (settings.pickup_enabled) {
@@ -171,12 +172,16 @@ export async function calculateShippingQuote(params: {
     };
   }
 
-  const cleanedCep = cleanCep(rawCep ?? '');
-  if (cleanedCep.length !== 8) {
-    return { address: null, options, deliveryUnavailableReason: null };
+  let address: ResolvedCepAddress;
+  if (gpsAddress) {
+    address = gpsAddress;
+  } else {
+    const cleanedCep = cleanCep(rawCep ?? '');
+    if (cleanedCep.length !== 8) {
+      return { address: null, options, deliveryUnavailableReason: null };
+    }
+    address = await resolveCepWithCoords(cleanedCep);
   }
-
-  const address = await resolveCepWithCoords(cleanedCep);
   const mode = settings.delivery_mode;
 
   if (mode === 'zones' || mode === 'both') {

@@ -226,7 +226,13 @@ export default function OrderConfirmationPage() {
               </a>
             )}
 
-            <OrderReceiptDetailsCard receipt={receipt} pickupAddress={settings.pickup_address} />
+            <OrderReceiptDetailsCard
+              receipt={receipt}
+              pickupAddress={settings.pickup_address}
+              pickupInstructions={settings.pickup_instructions}
+              storeLat={settings.store_lat}
+              storeLng={settings.store_lng}
+            />
 
             <div className="text-center pt-2">
               <Link to="/" className="inline-flex min-h-[44px] items-center gap-1.5 text-xs font-semibold text-brand hover:underline">

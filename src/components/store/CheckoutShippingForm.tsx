@@ -1,8 +1,12 @@
-import { AlertCircle, CheckCircle2, Loader2, MapPin, Store, Truck } from 'lucide-react';
+import { useState } from 'react';
+import { AlertCircle, CheckCircle2, Loader2, LocateFixed, Store, Truck } from 'lucide-react';
 import { formatBRL } from '../../lib/formatters';
 import { formatCep } from '../../lib/geoCep';
+import type { ResolvedGpsLocation } from '../../lib/geoMaps';
 import type { ShippingCalculationResult } from '../../services/shippingService';
 import type { FulfillmentType, StoreSettings } from '../../types/database';
+import GpsLocationPickerModal from './GpsLocationPickerModal';
+import PickupLocationCard from './PickupLocationCard';
 
 export interface CheckoutAddressFields {
   street: string;
@@ -25,6 +29,7 @@ interface CheckoutShippingFormProps {
   calculating: boolean;
   shippingError: string | null;
   onCalculateCep: (overrideCep?: string) => void;
+  onGpsLocationConfirmed: (location: ResolvedGpsLocation) => void;
   isFreeShippingCoupon: boolean;
 }
 
@@ -43,8 +48,10 @@ export default function CheckoutShippingForm({
   calculating,
   shippingError,
   onCalculateCep,
+  onGpsLocationConfirmed,
   isFreeShippingCoupon,
 }: CheckoutShippingFormProps) {
+  const [gpsModalOpen, setGpsModalOpen] = useState(false);
   const deliveryOption = shippingResult?.options.find((o) => o.fulfillmentType === 'delivery');
 
   const handleCepInput = (raw: string) => {
@@ -73,7 +80,7 @@ export default function CheckoutShippingForm({
             <Truck className="h-5 w-5 shrink-0" />
             <div>
               <p className="text-xs font-bold">Receber em Casa</p>
-              <p className="text-[11px] opacity-80">Calcule a taxa pelo CEP</p>
+              <p className="text-[11px] opacity-80">Calcule pelo GPS ou CEP</p>
             </div>
           </button>
         )}
@@ -91,31 +98,36 @@ export default function CheckoutShippingForm({
             <Store className="h-5 w-5 shrink-0" />
             <div>
               <p className="text-xs font-bold">Retirar na Loja — Grátis</p>
-              <p className="text-[11px] opacity-80">Sem custo de frete</p>
+              <p className="text-[11px] opacity-80">Ver local no Maps / Waze</p>
             </div>
           </button>
         )}
       </div>
 
       {fulfillmentType === 'pickup' ? (
-        <div className="rounded-2xl border border-brand-100 bg-brand-50/50 p-3.5 space-y-1 text-xs text-stone-700">
-          <p className="flex items-center gap-1.5 font-bold text-stone-900">
-            <MapPin className="h-4 w-4 text-brand" /> Endereço de Retirada
-          </p>
-          <p>{settings.pickup_address || 'Endereço informado após confirmação do pedido.'}</p>
-          {settings.pickup_instructions && (
-            <p className="text-stone-500">{settings.pickup_instructions}</p>
-          )}
-        </div>
+        <PickupLocationCard
+          pickupAddress={settings.pickup_address}
+          pickupInstructions={settings.pickup_instructions}
+          storeLat={settings.store_lat}
+          storeLng={settings.store_lng}
+        />
       ) : (
         <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => setGpsModalOpen(true)}
+            className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl border border-brand-200 bg-brand-50/70 px-4 text-xs sm:text-sm font-bold text-brand transition hover:bg-brand-100 active:scale-[0.99]"
+          >
+            <LocateFixed className="h-4 w-4 shrink-0" />
+            Usar meu GPS e ajustar alfinete no mapa
+          </button>
+
           <div>
-            <label className="block text-xs font-semibold text-stone-700">CEP *</label>
+            <label className="block text-xs font-semibold text-stone-700">CEP (ou selecione pelo GPS acima)</label>
             <div className="mt-1 flex gap-2">
               <input
                 type="text"
                 inputMode="numeric"
-                required
                 value={cep}
                 onChange={(e) => handleCepInput(e.target.value)}
                 placeholder="00000-000"
@@ -197,6 +209,17 @@ export default function CheckoutShippingForm({
           </div>
         </div>
       )}
+
+      <GpsLocationPickerModal
+        open={gpsModalOpen}
+        initialLat={shippingResult?.address?.lat ?? settings.store_lat}
+        initialLng={shippingResult?.address?.lng ?? settings.store_lng}
+        onClose={() => setGpsModalOpen(false)}
+        onConfirm={(loc) => {
+          setGpsModalOpen(false);
+          onGpsLocationConfirmed(loc);
+        }}
+      />
     </section>
   );
 }

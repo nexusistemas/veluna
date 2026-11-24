@@ -1,15 +1,22 @@
-import { MapPin, Store } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import { formatBRL } from '../../lib/formatters';
 import type { PublicOrderStatusResult } from '../../types/database';
+import PickupLocationCard from './PickupLocationCard';
 
 interface OrderReceiptDetailsCardProps {
   receipt: PublicOrderStatusResult;
   pickupAddress: string | null;
+  pickupInstructions?: string | null;
+  storeLat?: number | null;
+  storeLng?: number | null;
 }
 
 export default function OrderReceiptDetailsCard({
   receipt,
   pickupAddress,
+  pickupInstructions,
+  storeLat,
+  storeLng,
 }: OrderReceiptDetailsCardProps) {
   return (
     <>
@@ -51,21 +58,25 @@ export default function OrderReceiptDetailsCard({
         </div>
       </section>
 
-      <section className="rounded-3xl border border-stone-200 bg-white p-4 text-xs text-stone-600 shadow-sm space-y-1">
-        <p className="flex items-center gap-1.5 font-bold text-stone-900">
-          {receipt.fulfillment_type === 'pickup' ? (
-            <Store className="h-4 w-4 text-brand" />
-          ) : (
+      {receipt.fulfillment_type === 'pickup' ? (
+        <section className="rounded-3xl border border-stone-200 bg-white p-4 shadow-sm">
+          <PickupLocationCard
+            title="Retirada na Loja"
+            pickupAddress={pickupAddress}
+            pickupInstructions={pickupInstructions}
+            storeLat={storeLat}
+            storeLng={storeLng}
+          />
+        </section>
+      ) : (
+        <section className="rounded-3xl border border-stone-200 bg-white p-4 text-xs text-stone-600 shadow-sm space-y-1">
+          <p className="flex items-center gap-1.5 font-bold text-stone-900">
             <MapPin className="h-4 w-4 text-brand" />
-          )}
-          {receipt.fulfillment_type === 'pickup' ? 'Retirada na Loja' : 'Endereço de Entrega'}
-        </p>
-        <p>
-          {receipt.fulfillment_type === 'pickup'
-            ? pickupAddress || 'Combine a retirada pelo WhatsApp.'
-            : receipt.shipping_address || 'Endereço registrado no pedido.'}
-        </p>
-      </section>
+            Endereço de Entrega
+          </p>
+          <p>{receipt.shipping_address || 'Endereço registrado no pedido.'}</p>
+        </section>
+      )}
     </>
   );
 }

@@ -1,9 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { AlertCircle, CheckCircle2, Loader2, MapPin, Save, Search } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Loader2, LocateFixed, MapPin, Save, Search } from 'lucide-react';
 import { formatPhoneBR, onlyDigits } from '../../lib/formatters';
 import { cleanCep, formatCep, resolveCepWithCoords } from '../../lib/geoCep';
+import type { ResolvedGpsLocation } from '../../lib/geoMaps';
 import { getMyCustomerProfile, saveMyCustomerProfile } from '../../services/customerAccountService';
 import type { CustomerProfile } from '../../types/customer';
+import GpsLocationPickerModal from './GpsLocationPickerModal';
 
 interface CustomerProfileFormCardProps {
   userId: string;
@@ -36,6 +38,7 @@ export default function CustomerProfileFormCard({
   const [lookingUpCep, setLookingUpCep] = useState(false);
   const [cepError, setCepError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [gpsOpen, setGpsOpen] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
@@ -135,9 +138,18 @@ export default function CustomerProfileFormCard({
       </div>
 
       <div className="border-t border-stone-100 pt-4 space-y-3">
-        <h3 className="flex items-center gap-1.5 text-base font-bold text-stone-900">
-          <MapPin className="h-4 w-4 text-brand" /> Endereço Padrão de Entrega
-        </h3>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="flex items-center gap-1.5 text-base font-bold text-stone-900">
+            <MapPin className="h-4 w-4 text-brand" /> Endereço Padrão de Entrega
+          </h3>
+          <button
+            type="button"
+            onClick={() => setGpsOpen(true)}
+            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-brand-200 bg-brand-50 px-3 text-xs font-bold text-brand hover:bg-brand-100"
+          >
+            <LocateFixed className="h-4 w-4" /> Usar meu GPS no mapa
+          </button>
+        </div>
         <div>
           <label className="block text-xs font-semibold text-stone-700">CEP</label>
           <div className="mt-1 flex gap-2">
@@ -213,6 +225,23 @@ export default function CustomerProfileFormCard({
         {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
         {saving ? 'Salvando...' : 'Salvar Meus Dados'}
       </button>
+
+      <GpsLocationPickerModal
+        open={gpsOpen}
+        onClose={() => setGpsOpen(false)}
+        onConfirm={(loc: ResolvedGpsLocation) => {
+          setGpsOpen(false);
+          setForm((prev) => ({
+            ...prev,
+            cep: loc.cep ? formatCep(loc.cep) : prev.cep,
+            street: loc.street || prev.street,
+            number: loc.number || prev.number,
+            neighborhood: loc.neighborhood || prev.neighborhood,
+            city: loc.city || prev.city,
+            state: loc.state || prev.state,
+          }));
+        }}
+      />
     </form>
   );
 }
