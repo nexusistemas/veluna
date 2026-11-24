@@ -5,7 +5,12 @@ import { AuthProvider } from './contexts/AuthContext';
 import { StoreSettingsProvider } from './contexts/StoreSettingsContext';
 import AdminDashboardHome from './pages/admin/AdminDashboardHome';
 import AdminModulePlaceholder from './pages/admin/AdminModulePlaceholder';
+import BannersPage from './pages/admin/BannersPage';
+import CategoriesPage from './pages/admin/CategoriesPage';
+import CouponsPage from './pages/admin/CouponsPage';
 import LoginPage from './pages/admin/LoginPage';
+import ProductEditorPage from './pages/admin/ProductEditorPage';
+import ProductsListPage from './pages/admin/ProductsListPage';
 import ResetPasswordPage from './pages/admin/ResetPasswordPage';
 import StoreHomePlaceholder from './pages/store/StoreHomePlaceholder';
 
@@ -23,10 +28,12 @@ export default function App() {
               <Route element={<AdminLayout />}>
                 <Route index element={<AdminDashboardHome />} />
                 <Route path="pdv" element={<AdminModulePlaceholder moduleKey="pdv" />} />
-                <Route path="produtos" element={<AdminModulePlaceholder moduleKey="produtos" />} />
-                <Route path="categorias" element={<AdminModulePlaceholder moduleKey="categorias" />} />
-                <Route path="banners" element={<AdminModulePlaceholder moduleKey="banners" />} />
-                <Route path="cupons" element={<AdminModulePlaceholder moduleKey="cupons" />} />
+                <Route path="produtos" element={<ProductsListPage />} />
+                <Route path="produtos/novo" element={<ProductEditorPage />} />
+                <Route path="produtos/:id" element={<ProductEditorPage />} />
+                <Route path="categorias" element={<CategoriesPage />} />
+                <Route path="banners" element={<BannersPage />} />
+                <Route path="cupons" element={<CouponsPage />} />
                 <Route path="entrega" element={<AdminModulePlaceholder moduleKey="entrega" />} />
                 <Route path="pedidos" element={<AdminModulePlaceholder moduleKey="pedidos" />} />
                 <Route
