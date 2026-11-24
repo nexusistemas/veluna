@@ -1,4 +1,4 @@
-export type DeliveryMode = 'fixed' | 'zones' | 'pickup_only' | 'whatsapp_quote';
+export type DeliveryMode = 'zones' | 'radius' | 'both';
 export type DiscountType = 'percentage' | 'fixed' | 'free_shipping';
 export type OrderChannel = 'online' | 'pdv';
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'out_for_delivery' | 'delivered' | 'cancelled';
@@ -23,13 +23,20 @@ export interface StoreSettings {
   primary_color: string;
   whatsapp_number: string | null;
   instagram_handle: string | null;
-  address: string | null;
-  pickup_instructions: string | null;
   opening_hours: string | null;
   is_open: boolean;
+  pickup_enabled: boolean;
+  pickup_address: string | null;
+  pickup_instructions: string | null;
+  delivery_enabled: boolean;
   delivery_mode: DeliveryMode;
-  fixed_delivery_fee: number;
-  free_shipping_threshold: number | null;
+  store_cep: string | null;
+  store_lat: number | null;
+  store_lng: number | null;
+  max_radius_km: number;
+  radius_base_fee: number;
+  radius_km_fee: number;
+  free_shipping_min: number | null;
   pix_key: string | null;
   pix_receiver_name: string | null;
   mp_public_key: string | null;
@@ -125,10 +132,11 @@ export interface Coupon {
 }
 export interface DeliveryZone {
   id: string;
-  neighborhood: string;
   city: string;
-  fee: number;
-  estimated_minutes: number | null;
+  state: string;
+  neighborhood: string | null;
+  delivery_fee: number;
+  estimated_time: string | null;
   is_active: boolean;
   created_at: string;
 }

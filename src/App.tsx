@@ -8,6 +8,7 @@ import AdminModulePlaceholder from './pages/admin/AdminModulePlaceholder';
 import BannersPage from './pages/admin/BannersPage';
 import CategoriesPage from './pages/admin/CategoriesPage';
 import CouponsPage from './pages/admin/CouponsPage';
+import DeliverySettingsPage from './pages/admin/DeliverySettingsPage';
 import LoginPage from './pages/admin/LoginPage';
 import ProductEditorPage from './pages/admin/ProductEditorPage';
 import ProductsListPage from './pages/admin/ProductsListPage';
@@ -34,7 +35,7 @@ export default function App() {
                 <Route path="categorias" element={<CategoriesPage />} />
                 <Route path="banners" element={<BannersPage />} />
                 <Route path="cupons" element={<CouponsPage />} />
-                <Route path="entrega" element={<AdminModulePlaceholder moduleKey="entrega" />} />
+                <Route path="entrega" element={<DeliverySettingsPage />} />
                 <Route path="pedidos" element={<AdminModulePlaceholder moduleKey="pedidos" />} />
                 <Route
                   path="configuracoes"

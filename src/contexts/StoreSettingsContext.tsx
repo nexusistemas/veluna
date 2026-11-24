@@ -17,13 +17,20 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   primary_color: '#db2777',
   whatsapp_number: null,
   instagram_handle: null,
-  address: null,
-  pickup_instructions: null,
   opening_hours: null,
   is_open: true,
-  delivery_mode: 'fixed',
-  fixed_delivery_fee: 0,
-  free_shipping_threshold: null,
+  pickup_enabled: true,
+  pickup_address: null,
+  pickup_instructions: null,
+  delivery_enabled: true,
+  delivery_mode: 'both',
+  store_cep: null,
+  store_lat: null,
+  store_lng: null,
+  max_radius_km: 10,
+  radius_base_fee: 5,
+  radius_km_fee: 1.5,
+  free_shipping_min: null,
   pix_key: null,
   pix_receiver_name: null,
   mp_public_key: null,
@@ -37,6 +44,22 @@ interface StoreSettingsContextValue {
 }
 
 const StoreSettingsContext = createContext<StoreSettingsContextValue | undefined>(undefined);
+
+function coerceSettingsRow(raw: Partial<StoreSettings>): StoreSettings {
+  const merged = { ...DEFAULT_STORE_SETTINGS, ...raw };
+  return {
+    ...merged,
+    store_lat: merged.store_lat !== null && merged.store_lat !== undefined ? Number(merged.store_lat) : null,
+    store_lng: merged.store_lng !== null && merged.store_lng !== undefined ? Number(merged.store_lng) : null,
+    max_radius_km: Number(merged.max_radius_km ?? 10) || 0,
+    radius_base_fee: Number(merged.radius_base_fee ?? 0) || 0,
+    radius_km_fee: Number(merged.radius_km_fee ?? 0) || 0,
+    free_shipping_min:
+      merged.free_shipping_min !== null && merged.free_shipping_min !== undefined
+        ? Number(merged.free_shipping_min)
+        : null,
+  };
+}
 
 export function StoreSettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<StoreSettings>(DEFAULT_STORE_SETTINGS);
@@ -58,10 +81,7 @@ export function StoreSettingsProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (!error && data) {
-        setSettings({
-          ...DEFAULT_STORE_SETTINGS,
-          ...(data as Partial<StoreSettings>),
-        });
+        setSettings(coerceSettingsRow(data as Partial<StoreSettings>));
       }
     } catch {
       // Mantém fallback seguro caso a rede esteja offline
