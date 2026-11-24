@@ -26,7 +26,7 @@ export default function StoreHomePlaceholder() {
             lançado na <strong>Etapa 5</strong>.
           </div>
 
-          <p className="mt-5 text-xs text-stone-400">veluna.nexusistemas.com.app</p>
+          <p className="mt-5 text-xs text-stone-400">veluna.nexusistemas.app.br</p>
         </section>
       </div>
 

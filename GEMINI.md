@@ -1,7 +1,7 @@
-# Diretrizes de Engenharia — Veluna Cosméticos (`veluna.nexusistemas.com.app`)
+# Diretrizes de Engenharia — Veluna Cosméticos (`veluna.nexusistemas.app.br`)
 
 ## 1. Stack, Domínio e Hospedagem Serverless
-- **Marca / Domínio:** Veluna Cosméticos (`https://veluna.nexusistemas.com.app`), arquivo `public/CNAME` obrigatório.
+- **Marca / Domínio:** Veluna Cosméticos (`https://veluna.nexusistemas.app.br`), arquivo `public/CNAME` obrigatório.
 - **Frontend:** React 18 + TypeScript + Vite (`base: '/'`) + Tailwind CSS v3 + Lucide React.
 - **Roteamento:** Usar exclusivamente `HashRouter` (`react-router-dom`) para evitar erro 404 ao recarregar rotas no GitHub Pages com domínio próprio.
 - **Backend/Auth/Storage:** Supabase (`@supabase/supabase-js`) + Supabase Edge Functions (Deno).
