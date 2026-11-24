@@ -79,9 +79,14 @@ export async function updateOrderPaymentSafe(
     updated_at: now,
   };
 
-  const canPromoteStatus =
-    paymentStatus === 'approved' &&
-    (order.status === 'pending_payment' || order.status === 'pending');
+  const isPendingOrder = order.status === 'pending_payment' || order.status === 'pending';
+  const canPromoteStatus = paymentStatus === 'approved' && isPendingOrder;
+  const shouldCancelOrder = paymentStatus === 'cancelled' && isPendingOrder;
+
+  if (shouldCancelOrder) {
+    await serviceClient.from('orders').update({ ...baseUpdate, status: 'cancelled' }).eq('id', order.id);
+    return 'cancelled';
+  }
 
   if (!canPromoteStatus) {
     await serviceClient.from('orders').update(baseUpdate).eq('id', order.id);

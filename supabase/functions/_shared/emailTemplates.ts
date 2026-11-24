@@ -1,60 +1,33 @@
-export type OrderEmailEvent = 'order_created' | 'payment_approved' | 'status_updated';
+export type OrderEmailEvent = 'order_created' | 'payment_approved' | 'status_updated' | 'pix_expired';
 
 export interface EmailOrderRow {
-  id: string;
-  order_number: string | number;
-  public_access_token: string;
-  channel: string;
-  status: string;
-  fulfillment_type: string;
-  payment_method: string;
-  payment_status: string;
-  customer_name: string;
-  customer_phone?: string | null;
-  customer_whatsapp?: string | null;
-  customer_email?: string | null;
-  customer_user_id?: string | null;
-  shipping_address?: string | null;
-  shipping_street?: string | null;
-  shipping_number?: string | null;
-  shipping_neighborhood?: string | null;
-  shipping_city?: string | null;
-  shipping_state?: string | null;
-  coupon_code?: string | null;
-  subtotal: number;
-  discount_amount: number;
-  shipping_fee: number;
-  total: number;
-  notes?: string | null;
+  id: string; order_number: string | number; public_access_token: string;
+  channel: string; status: string; fulfillment_type: string;
+  payment_method: string; payment_status: string; customer_name: string;
+  customer_phone?: string | null; customer_whatsapp?: string | null;
+  customer_email?: string | null; customer_user_id?: string | null;
+  shipping_address?: string | null; shipping_street?: string | null; shipping_number?: string | null;
+  shipping_neighborhood?: string | null; shipping_city?: string | null; shipping_state?: string | null;
+  coupon_code?: string | null; subtotal: number; discount_amount: number;
+  shipping_fee: number; total: number; notes?: string | null;
 }
 
 export interface EmailOrderItemRow {
-  product_name?: string | null;
-  product_name_snapshot?: string | null;
-  variant_name?: string | null;
-  variant_name_snapshot?: string | null;
-  quantity: number;
-  line_total: number;
+  product_name?: string | null; product_name_snapshot?: string | null;
+  variant_name?: string | null; variant_name_snapshot?: string | null;
+  quantity: number; line_total: number;
 }
 
 export interface EmailStoreSettingsRow {
-  store_name?: string | null;
-  pickup_address?: string | null;
-  pickup_instructions?: string | null;
+  store_name?: string | null; pickup_address?: string | null; pickup_instructions?: string | null;
 }
 
 function esc(raw: unknown): string {
-  return String(raw ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  return String(raw ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function formatBRL(value: number): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-    Number.isFinite(Number(value)) ? Number(value) : 0,
-  );
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number.isFinite(Number(value)) ? Number(value) : 0);
 }
 
 function normalizeWaPhone(raw: string): string {
@@ -85,14 +58,11 @@ function buildItemsTable(items: EmailOrderItemRow[]): string {
       </tr>`;
     })
     .join('');
-
   return `<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:14px 0;">
     <thead><tr>
       <th align="left" style="padding:8px;background:#fff1f2;color:#9d174d;font-size:12px;border-radius:8px 0 0 8px;">Produto / Opção</th>
       <th align="right" style="padding:8px;background:#fff1f2;color:#9d174d;font-size:12px;border-radius:0 8px 8px 0;">Subtotal</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
+    </tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function buildTotalsBlock(order: EmailOrderRow): string {
@@ -135,27 +105,46 @@ export function buildAdminOrderEmailHtml(
 ): { subject: string; html: string } {
   const totalLabel = formatBRL(Number(order.total));
   const isPaid = event === 'payment_approved';
+  const isExpired = event === 'pix_expired';
+  const isPendingPix = !isPaid && !isExpired && order.payment_method === 'pix_mp' && order.payment_status === 'pending';
+
   const subject = isPaid
     ? `✅ PAGO — Separar Pedido #${order.order_number} (${order.customer_name})`
-    : `🛍️ Novo Pedido #${order.order_number} no Site — ${totalLabel}`;
+    : isExpired
+      ? `⏰ Pix Expirado — Pedido #${order.order_number} cancelado (${order.customer_name})`
+      : isPendingPix
+        ? `⏳ Pix Pendente — Pedido #${order.order_number} (${order.customer_name}) — ${totalLabel}`
+        : `🛍️ Novo Pedido #${order.order_number} no Site — ${totalLabel}`;
+
+  const intro = isPaid
+    ? 'Pagamento confirmado! Você já pode separar os cosméticos deste pedido.'
+    : isExpired
+      ? 'O prazo de 30 minutos do Pix venceu e o pedido foi cancelado automaticamente (estoque devolvido). Chame a cliente no WhatsApp se quiser recuperar a venda!'
+      : isPendingPix
+        ? 'Novo pedido via Pix aguardando pagamento! Você já pode chamar a cliente no WhatsApp para ajudar. Caso não pague em 30 minutos, será cancelado automaticamente.'
+        : 'Um novo pedido acabou de chegar na sua loja online.';
 
   const phone = order.customer_phone || order.customer_whatsapp || '';
   const waDigits = normalizeWaPhone(phone);
+  const waPrefill = isExpired
+    ? `Olá ${order.customer_name}! Vi que o Pix do seu pedido #${order.order_number} na ${storeName} expirou. Quer que eu te ajude a refazer o pedido? 💖`
+    : isPendingPix
+      ? `Olá ${order.customer_name}! Vi seu pedido #${order.order_number} na ${storeName}. Precisa de alguma ajuda para concluir o pagamento Pix? 💖`
+      : `Olá ${order.customer_name}! Sobre seu pedido #${order.order_number} na ${storeName}: `;
   const waBtn = waDigits
-    ? `<a href="https://wa.me/${waDigits}" style="display:inline-block;margin:6px 8px 6px 0;padding:11px 18px;border-radius:12px;background:#059669;color:#ffffff;font-size:13px;font-weight:700;text-decoration:none;">Chamar Cliente no WhatsApp</a>`
+    ? `<a href="https://wa.me/${waDigits}?text=${encodeURIComponent(waPrefill)}" style="display:inline-block;margin:6px 8px 6px 0;padding:11px 18px;border-radius:12px;background:#059669;color:#ffffff;font-size:13px;font-weight:700;text-decoration:none;">Chamar Cliente no WhatsApp</a>`
     : '';
-  const fulfillment =
-    order.fulfillment_type === 'pickup' ? 'Retirada na Loja' : `Entrega: ${resolveAddressText(order)}`;
+  const fulfillment = order.fulfillment_type === 'pickup' ? 'Retirada na Loja' : `Entrega: ${resolveAddressText(order)}`;
   const panelUrl = `${siteOrigin.replace(/\/+$/, '')}/#/painel/pedidos`;
+  const payLabel = order.payment_method === 'pix_mp' ? `Pix (${order.payment_status === 'approved' ? 'Pago' : isExpired ? 'Expirado' : 'Aguardando Pagamento'})` : `${order.payment_method} (${order.payment_status})`;
 
   const body = `
-    <p style="margin:0 0 14px;font-size:14px;color:#44403c;line-height:1.5;">
-      ${isPaid ? 'Pagamento confirmado! Você já pode separar os cosméticos deste pedido.' : 'Um novo pedido acabou de chegar na sua loja online.'}
-    </p>
+    <p style="margin:0 0 14px;font-size:14px;color:#44403c;line-height:1.5;">${esc(intro)}</p>
     <div style="background:#fafaf9;border:1px solid #e7e5e4;border-radius:14px;padding:14px;font-size:13px;line-height:1.6;color:#292524;">
       <div><strong>Pedido:</strong> #${esc(order.order_number)}</div>
       <div><strong>Cliente:</strong> ${esc(order.customer_name)}</div>
       ${phone ? `<div><strong>WhatsApp:</strong> ${esc(phone)}</div>` : ''}
+      <div><strong>Pagamento:</strong> ${esc(payLabel)}</div>
       <div><strong>Modalidade:</strong> ${esc(fulfillment)}</div>
       ${order.notes ? `<div><strong>Obs:</strong> ${esc(order.notes)}</div>` : ''}
     </div>
@@ -166,10 +155,8 @@ export function buildAdminOrderEmailHtml(
       <a href="${esc(panelUrl)}" style="display:inline-block;margin:6px 0;padding:11px 18px;border-radius:12px;background:#db2777;color:#ffffff;font-size:13px;font-weight:700;text-decoration:none;">Abrir Painel de Pedidos</a>
     </div>`;
 
-  return {
-    subject,
-    html: wrapLayout(storeName, isPaid ? 'Pagamento Aprovado' : 'Nova Venda Online', `Pedido #${order.order_number}`, body),
-  };
+  const badge = isPaid ? 'Pagamento Aprovado' : isExpired ? 'Pix Expirado' : isPendingPix ? 'Pix Pendente' : 'Nova Venda Online';
+  return { subject, html: wrapLayout(storeName, badge, `Pedido #${order.order_number}`, body) };
 }
 
 export function buildCustomerOrderEmailHtml(
@@ -180,14 +167,25 @@ export function buildCustomerOrderEmailHtml(
   siteOrigin: string,
 ): { subject: string; html: string } {
   const storeName = storeSettings.store_name || 'Veluna Cosméticos';
+  const cleanOrigin = siteOrigin.replace(/\/+$/, '');
   let subject = `🛍️ Comprovante do Pedido #${order.order_number} — ${storeName}`;
   let headline = `Recebemos o seu pedido #${order.order_number}!`;
-  let intro = `Olá, ${order.customer_name}! Obrigada por comprar na ${storeName}. Abaixo estão os detalhes do seu pedido.`;
+  let intro = order.payment_method === 'pix_mp' && order.payment_status === 'pending'
+    ? `Olá, ${order.customer_name}! Recebemos seu pedido #${order.order_number}. O código Pix fica disponível por 30 minutos — clique no botão abaixo caso precise acessar ou copiar o Pix novamente.`
+    : `Olá, ${order.customer_name}! Obrigada por comprar na ${storeName}. Abaixo estão os detalhes do seu pedido.`;
+  let ctaLabel = 'Acompanhar Pedido / Ver Comprovante';
+  let ctaUrl = `${cleanOrigin}/#/pedido/${order.id}?token=${encodeURIComponent(order.public_access_token)}`;
 
   if (event === 'payment_approved') {
     subject = `✅ Pagamento Confirmado — Pedido #${order.order_number} (${storeName})`;
-    headline = `Pagamento confirmado! 💖`;
+    headline = 'Pagamento confirmado! 💖';
     intro = `Olá, ${order.customer_name}! Recebemos a confirmação do seu pagamento e já estamos cuidando do seu pedido #${order.order_number}.`;
+  } else if (event === 'pix_expired') {
+    subject = `⏰ Tempo do Pix expirado — Pedido #${order.order_number} cancelado (${storeName})`;
+    headline = 'Tempo do Pix expirado';
+    intro = `Olá, ${order.customer_name}! O prazo de 30 minutos para pagar o Pix do pedido #${order.order_number} terminou, então o pedido foi cancelado automaticamente e os itens voltaram ao estoque. Você pode voltar à loja e refazer sua compra quando quiser! 💖`;
+    ctaLabel = 'Voltar para a Loja e Refazer Pedido';
+    ctaUrl = cleanOrigin;
   } else if (event === 'status_updated') {
     const map: Record<string, { s: string; h: string; i: string }> = {
       preparing: { s: `💖 Pedido #${order.order_number} em separação`, h: 'Estamos separando seus cosméticos!', i: 'Seu pedido está sendo separado com todo carinho pela nossa equipe.' },
@@ -196,7 +194,7 @@ export function buildCustomerOrderEmailHtml(
       out_for_delivery: { s: `🛵 Pedido #${order.order_number} saiu para entrega`, h: 'Seu pedido saiu para entrega!', i: 'Fique de olho — seu pedido está a caminho do seu endereço.' },
       delivered: { s: `✨ Pedido #${order.order_number} concluído`, h: 'Pedido concluído! ✨', i: `Esperamos que você ame cada produto escolhido na ${storeName}!` },
       completed: { s: `✨ Pedido #${order.order_number} concluído`, h: 'Pedido concluído! ✨', i: `Esperamos que você ame cada produto escolhido na ${storeName}!` },
-      cancelled: { s: `ℹ️ Pedido #${order.order_number} cancelado`, h: 'Pedido cancelado', i: 'Passando para confirmar que este pedido foi cancelado. Se precisar de ajuda, fale conosco pelo WhatsApp.' },
+      cancelled: { s: `ℹ️ Pedido #${order.order_number} cancelado`, h: 'Pedido cancelado', i: 'Passando para confirmar que este pedido foi cancelado. Se quiser refazer sua compra, estamos à disposição!' },
     };
     const chosen = map[order.status];
     if (chosen) {
@@ -206,11 +204,9 @@ export function buildCustomerOrderEmailHtml(
     }
   }
 
-  const locationHtml =
-    order.fulfillment_type === 'pickup'
-      ? `<strong>Retirada na Loja:</strong> ${esc(storeSettings.pickup_address || 'Combine o local pelo WhatsApp')}${storeSettings.pickup_instructions ? `<div style="margin-top:4px;color:#57534e;">${esc(storeSettings.pickup_instructions)}</div>` : ''}`
-      : `<strong>Entrega:</strong> ${esc(resolveAddressText(order))}`;
-  const receiptUrl = `${siteOrigin.replace(/\/+$/, '')}/#/pedido/${order.id}?token=${encodeURIComponent(order.public_access_token)}`;
+  const locationHtml = order.fulfillment_type === 'pickup'
+    ? `<strong>Retirada na Loja:</strong> ${esc(storeSettings.pickup_address || 'Combine o local pelo WhatsApp')}${storeSettings.pickup_instructions ? `<div style="margin-top:4px;color:#57534e;">${esc(storeSettings.pickup_instructions)}</div>` : ''}`
+    : `<strong>Entrega:</strong> ${esc(resolveAddressText(order))}`;
 
   const body = `
     <p style="margin:0 0 14px;font-size:14px;color:#44403c;line-height:1.6;">${esc(intro)}</p>
@@ -218,7 +214,7 @@ export function buildCustomerOrderEmailHtml(
     ${buildItemsTable(items)}
     ${buildTotalsBlock(order)}
     <div style="margin-top:22px;text-align:center;">
-      <a href="${esc(receiptUrl)}" style="display:inline-block;padding:13px 22px;border-radius:14px;background:#db2777;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;">Acompanhar Pedido / Ver Comprovante</a>
+      <a href="${esc(ctaUrl)}" style="display:inline-block;padding:13px 22px;border-radius:14px;background:#db2777;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;">${esc(ctaLabel)}</a>
     </div>`;
 
   return { subject, html: wrapLayout(storeName, `Pedido #${order.order_number}`, headline, body) };
@@ -232,8 +228,5 @@ export function buildTestEmailHtml(storeName: string, siteOrigin: string): { sub
     <div style="margin-top:18px;text-align:center;">
       <a href="${esc(siteOrigin)}" style="display:inline-block;padding:12px 20px;border-radius:12px;background:#db2777;color:#ffffff;font-size:13px;font-weight:700;text-decoration:none;">Abrir Loja Online</a>
     </div>`;
-  return {
-    subject: `✨ Teste de E-mail — ${storeName}`,
-    html: wrapLayout(storeName, 'Teste de Conexão Resend', 'E-mails ativos com sucesso!', body),
-  };
+  return { subject: `✨ Teste de E-mail — ${storeName}`, html: wrapLayout(storeName, 'Teste de Conexão Resend', 'E-mails ativos com sucesso!', body) };
 }

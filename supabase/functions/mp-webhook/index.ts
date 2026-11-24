@@ -84,8 +84,9 @@ Deno.serve(async (req: Request) => {
 
     const nextPaymentStatus = mapMpStatusToPaymentStatus(String(mpData.status ?? 'pending'));
     const wasApproved = order.payment_status === 'approved';
+    const wasCancelled = order.status === 'cancelled';
 
-    await updateOrderPaymentSafe(serviceClient, order, nextPaymentStatus, {
+    const nextOrderStatus = await updateOrderPaymentSafe(serviceClient, order, nextPaymentStatus, {
       mp_payment_id: paymentId,
     });
 
@@ -94,6 +95,8 @@ Deno.serve(async (req: Request) => {
         notifyOrderWhatsapp({ serviceClient, orderId: order.id, event: 'payment_approved' }).catch(() => {}),
         dispatchOrderEmails(serviceClient, { orderId: order.id, event: 'payment_approved' }).catch(() => {}),
       ]);
+    } else if (nextPaymentStatus === 'cancelled' && nextOrderStatus === 'cancelled' && !wasCancelled) {
+      await dispatchOrderEmails(serviceClient, { orderId: order.id, event: 'pix_expired' }).catch(() => {});
     }
 
     return jsonResponse({ received: true, updated: true, payment_status: nextPaymentStatus }, 200);

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   AlertCircle,
   Check,
   CheckCircle2,
+  Clock,
   Copy,
   Loader2,
   MessageCircle,
@@ -37,6 +39,7 @@ export default function PixPaymentPanel({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [approved, setApproved] = useState(paymentStatus === 'approved');
+  const [expired, setExpired] = useState(paymentStatus === 'cancelled');
 
   const requestPix = useCallback(async () => {
     setGenerating(true);
@@ -69,14 +72,17 @@ export default function PixPaymentPanel({
   }, [paymentStatus, qrCode, generating, errorMsg, requestPix]);
 
   useEffect(() => {
-    if (paymentStatus !== 'pending' || approved || !qrCode) return;
+    if (paymentStatus !== 'pending' || approved || expired || !qrCode) return;
     let cancelled = false;
     const intervalId = window.setInterval(() => {
       syncOrderPaymentStatus(orderId, publicToken)
         .then((res) => {
-          if (!cancelled && res.payment_status === 'approved') {
+          if (cancelled) return;
+          if (res.payment_status === 'approved') {
             setApproved(true);
             onPaymentApproved();
+          } else if (res.payment_status === 'cancelled' || res.order_status === 'cancelled') {
+            setExpired(true);
           }
         })
         .catch(() => {});
@@ -86,7 +92,7 @@ export default function PixPaymentPanel({
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [orderId, publicToken, paymentStatus, approved, qrCode, onPaymentApproved]);
+  }, [orderId, publicToken, paymentStatus, approved, expired, qrCode, onPaymentApproved]);
 
   const handleCopy = async () => {
     if (!qrCode) return;
@@ -98,6 +104,21 @@ export default function PixPaymentPanel({
       // Ignora erro de clipboard
     }
   };
+
+  if (expired) {
+    return (
+      <section className="rounded-3xl border border-rose-200 bg-rose-50 p-5 text-center space-y-3">
+        <Clock className="mx-auto h-10 w-10 text-rose-600" />
+        <p className="text-base font-extrabold text-rose-900">Tempo do Pix Expirado</p>
+        <p className="text-xs text-rose-800">
+          O prazo de 30 minutos para pagar o Pix terminou e este pedido foi cancelado automaticamente. Você pode refazer sua compra na loja!
+        </p>
+        <Link to="/" className="inline-flex min-h-[44px] items-center justify-center rounded-2xl bg-brand px-5 text-xs font-bold text-white hover:bg-brand-700">
+          Voltar para a loja
+        </Link>
+      </section>
+    );
+  }
 
   if (approved) {
     return (
@@ -176,7 +197,7 @@ export default function PixPaymentPanel({
 
           <p className="inline-flex items-center gap-1.5 text-[11px] font-medium text-stone-500">
             <Loader2 className="h-3.5 w-3.5 animate-spin text-brand" />
-            Aguardando confirmação automática do pagamento...
+            Aguardando pagamento • O código Pix expira em 30 minutos
           </p>
         </div>
       )}

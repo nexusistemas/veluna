@@ -15,3 +15,6 @@ verify_jwt = false
 
 [functions.notify-order-email]
 verify_jwt = false
+
+[functions.expire-pending-pix]
+verify_jwt = false

@@ -71,6 +71,7 @@ Deno.serve(async (req: Request) => {
         (order.customer_email as string | null)?.trim() ||
         `pedido.${String(order.order_number).replace(/\W/g, '')}@veluna.nexusistemas.app.br`;
 
+      const expiresAtIso = new Date(Date.now() + 30 * 60 * 1000).toISOString();
       const mpRes = await fetch('https://api.mercadopago.com/v1/payments', {
         method: 'POST',
         headers: {
@@ -82,6 +83,7 @@ Deno.serve(async (req: Request) => {
           transaction_amount: orderTotal,
           description: `Pedido #${order.order_number} - ${storeName}`,
           payment_method_id: 'pix',
+          date_of_expiration: expiresAtIso,
           external_reference: order.id,
           notification_url: notificationUrl,
           payer: {
@@ -93,8 +95,7 @@ Deno.serve(async (req: Request) => {
 
       const mpData = (await mpRes.json()) as Record<string, unknown>;
       if (!mpRes.ok) {
-        const msg = String(mpData.message || 'Erro ao gerar Pix no Mercado Pago.');
-        return jsonResponse({ error: msg }, 400);
+        return jsonResponse({ error: String(mpData.message || 'Erro ao gerar Pix no Mercado Pago.') }, 400);
       }
 
       const txData = (mpData.point_of_interaction as { transaction_data?: Record<string, string> } | undefined)?.transaction_data;
@@ -108,15 +109,13 @@ Deno.serve(async (req: Request) => {
           mp_payment_id: mpPaymentId,
           mp_pix_qr_code: qrCode,
           mp_pix_qr_base64: qrBase64,
+          pix_expires_at: (mpData.date_of_expiration as string | undefined) || expiresAtIso,
           updated_at: new Date().toISOString(),
         })
         .eq('id', order.id);
 
       return jsonResponse({
-        ok: true,
-        mp_payment_id: mpPaymentId,
-        qr_code: qrCode,
-        qr_code_base64: qrBase64,
+        ok: true, mp_payment_id: mpPaymentId, qr_code: qrCode, qr_code_base64: qrBase64,
         status: String(mpData.status || 'pending'),
         payment_status: mapMpStatusToPaymentStatus(String(mpData.status || 'pending')),
       });
@@ -131,18 +130,12 @@ Deno.serve(async (req: Request) => {
       const payload = {
         transaction_amount: orderTotal,
         description: `Pedido #${order.order_number} - ${storeName}`,
-        token: cardData.token,
-        issuer_id: cardData.issuer_id,
-        payment_method_id: cardData.payment_method_id,
-        installments: Number(cardData.installments) || 1,
-        external_reference: order.id,
-        notification_url: notificationUrl,
+        token: cardData.token, issuer_id: cardData.issuer_id,
+        payment_method_id: cardData.payment_method_id, installments: Number(cardData.installments) || 1,
+        external_reference: order.id, notification_url: notificationUrl,
         payer: {
           ...rawPayer,
-          email:
-            (rawPayer.email as string | undefined) ||
-            (order.customer_email as string | null) ||
-            `pedido.${String(order.order_number).replace(/\W/g, '')}@veluna.nexusistemas.app.br`,
+          email: (rawPayer.email as string | undefined) || (order.customer_email as string | null) || `pedido.${String(order.order_number).replace(/\W/g, '')}@veluna.nexusistemas.app.br`,
         },
       };
 
@@ -235,6 +228,8 @@ Deno.serve(async (req: Request) => {
             notifyOrderWhatsapp({ serviceClient, orderId: order.id, event: 'payment_approved' }).catch(() => {}),
             dispatchOrderEmails(serviceClient, { orderId: order.id, event: 'payment_approved' }).catch(() => {}),
           ]);
+        } else if (paymentStatus === 'cancelled' && orderStatus === 'cancelled') {
+          await dispatchOrderEmails(serviceClient, { orderId: order.id, event: 'pix_expired' }).catch(() => {});
         }
       }
 

@@ -173,7 +173,9 @@ export async function dispatchOrderEmails(
     secrets?.email_admin_enabled === true &&
     isRealEmail(adminEmail) &&
     order.channel === 'online' &&
-    (params.event === 'order_created' || params.event === 'payment_approved');
+    (params.event === 'order_created' ||
+      params.event === 'payment_approved' ||
+      params.event === 'pix_expired');
 
   if (shouldNotifyAdmin) {
     const adminMail = buildAdminOrderEmailHtml(order, items, storeName, params.event, origin);
