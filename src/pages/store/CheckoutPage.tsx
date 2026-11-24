@@ -19,6 +19,7 @@ import {
   type ShippingCalculationResult,
 } from '../../services/shippingService';
 import { submitStoreOrder } from '../../services/storePublicService';
+import { triggerAutoWhatsappNotification } from '../../services/whatsappService';
 import type { DeliveryZone, FulfillmentType, PaymentMethod } from '../../types/database';
 
 const EMPTY_CUSTOMER: CheckoutCustomerFields = { name: '', phone: '', email: '', cpf: '', notes: '' };
@@ -155,6 +156,7 @@ export default function CheckoutPage() {
         notes: customer.notes.trim() || null,
         items: items.map((item) => ({ variant_id: item.variantId, quantity: item.quantity })),
       });
+      triggerAutoWhatsappNotification(created.order_id, created.public_access_token, 'order_created');
       clearCart();
       navigate(`/pedido/${created.order_id}?token=${encodeURIComponent(created.public_access_token)}`, {
         replace: true,

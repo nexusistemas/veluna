@@ -15,6 +15,7 @@ import LoginPage from './pages/admin/LoginPage';
 import ProductEditorPage from './pages/admin/ProductEditorPage';
 import ProductsListPage from './pages/admin/ProductsListPage';
 import ResetPasswordPage from './pages/admin/ResetPasswordPage';
+import SettingsPage from './pages/admin/SettingsPage';
 import CheckoutPage from './pages/store/CheckoutPage';
 import OrderConfirmationPage from './pages/store/OrderConfirmationPage';
 import ProductDetailPage from './pages/store/ProductDetailPage';
@@ -48,10 +49,7 @@ export default function App() {
                   <Route path="cupons" element={<CouponsPage />} />
                   <Route path="entrega" element={<DeliverySettingsPage />} />
                   <Route path="pedidos" element={<AdminModulePlaceholder moduleKey="pedidos" />} />
-                  <Route
-                    path="configuracoes"
-                    element={<AdminModulePlaceholder moduleKey="configuracoes" />}
-                  />
+                  <Route path="configuracoes" element={<SettingsPage />} />
                 </Route>
               </Route>
 

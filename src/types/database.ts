@@ -1,7 +1,7 @@
 export type DeliveryMode = 'zones' | 'radius' | 'both';
 export type DiscountType = 'percentage' | 'fixed' | 'free_shipping';
 export type OrderChannel = 'online' | 'pdv';
-export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'out_for_delivery' | 'delivered' | 'cancelled';
+export type OrderStatus = 'pending' | 'pending_payment' | 'paid' | 'confirmed' | 'preparing' | 'ready' | 'out_for_delivery' | 'delivered' | 'cancelled';
 export type FulfillmentType = 'delivery' | 'pickup';
 export type PaymentMethod = 'pix_mp' | 'card_mp' | 'whatsapp_combine' | 'pix' | 'credit_card' | 'debit_card' | 'cash';
 export type PaymentStatus = 'pending' | 'approved' | 'rejected' | 'refunded' | 'cancelled';
@@ -40,12 +40,14 @@ export interface StoreSettings {
   pix_key: string | null;
   pix_receiver_name: string | null;
   mp_public_key: string | null;
+  whatsapp_auto_enabled: boolean;
   updated_at: string;
 }
 export interface PrivateSecrets {
   id: number;
   mp_access_token: string | null;
   mp_webhook_secret: string | null;
+  mp_point_device_id: string | null;
   whatsapp_webhook_url: string | null;
   whatsapp_webhook_token: string | null;
   updated_at: string;
@@ -163,6 +165,7 @@ export interface Order {
   shipping_fee: number;
   total: number;
   notes: string | null;
+  whatsapp_notified?: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -34,6 +34,7 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   pix_key: null,
   pix_receiver_name: null,
   mp_public_key: null,
+  whatsapp_auto_enabled: false,
   updated_at: '',
 };
 
@@ -58,6 +59,7 @@ function coerceSettingsRow(raw: Partial<StoreSettings>): StoreSettings {
       merged.free_shipping_min !== null && merged.free_shipping_min !== undefined
         ? Number(merged.free_shipping_min)
         : null,
+    whatsapp_auto_enabled: Boolean(merged.whatsapp_auto_enabled),
   };
 }
 

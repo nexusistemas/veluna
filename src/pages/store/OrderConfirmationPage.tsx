@@ -1,23 +1,30 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
   Loader2,
-  MapPin,
   MessageCircle,
-  Store,
+  Sparkles,
 } from 'lucide-react';
+import CardPaymentPanel from '../../components/store/CardPaymentPanel';
 import OrderPixCard from '../../components/store/OrderPixCard';
+import OrderReceiptDetailsCard from '../../components/store/OrderReceiptDetailsCard';
+import PixPaymentPanel from '../../components/store/PixPaymentPanel';
 import StoreHeader from '../../components/store/StoreHeader';
 import { useStoreSettings } from '../../contexts/StoreSettingsContext';
-import { formatBRL, onlyDigits } from '../../lib/formatters';
 import { fetchOrderPublicReceipt } from '../../services/storePublicService';
+import {
+  buildCustomerToStoreWaUrl,
+  buildOrderReceiptText,
+} from '../../services/whatsappService';
 import type { OrderStatus, PaymentStatus, PublicOrderStatusResult } from '../../types/database';
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   pending: 'Aguardando confirmação',
+  pending_payment: 'Aguardando pagamento',
+  paid: 'Pagamento confirmado',
   confirmed: 'Confirmado',
   preparing: 'Em separação',
   ready: 'Pronto para retirada',
@@ -45,30 +52,48 @@ export default function OrderConfirmationPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copiedPix, setCopiedPix] = useState(false);
 
-  useEffect(() => {
-    if (!id || !token) {
-      setErrorMsg('Link do pedido incompleto ou inválido.');
-      setLoading(false);
-      return;
-    }
-    let active = true;
-    setLoading(true);
-    fetchOrderPublicReceipt(id, token)
-      .then((data) => {
-        if (active) setReceipt(data);
-      })
-      .catch((err) => {
-        if (active) setErrorMsg(err instanceof Error ? err.message : 'Erro ao carregar recibo.');
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [id, token]);
+  const loadReceipt = useCallback(
+    async (silent = false) => {
+      if (!id || !token) {
+        setErrorMsg('Link do pedido incompleto ou inválido.');
+        setLoading(false);
+        return;
+      }
+      if (!silent) setLoading(true);
+      try {
+        const data = await fetchOrderPublicReceipt(id, token);
+        setReceipt(data);
+        setErrorMsg(null);
+      } catch (err) {
+        if (!silent) {
+          setErrorMsg(err instanceof Error ? err.message : 'Erro ao carregar recibo.');
+        }
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [id, token],
+  );
 
-  const handleCopyPix = async () => {
+  useEffect(() => {
+    void loadReceipt(false);
+  }, [loadReceipt]);
+
+  const handlePaymentApproved = useCallback(() => {
+    setReceipt((prev) =>
+      prev
+        ? {
+            ...prev,
+            payment_status: 'approved',
+            status:
+              prev.status === 'pending' || prev.status === 'pending_payment' ? 'paid' : prev.status,
+          }
+        : prev,
+    );
+    void loadReceipt(true);
+  }, [loadReceipt]);
+
+  const handleCopyFallbackPix = async () => {
     const code = receipt?.mp_pix_qr_code || settings.pix_key;
     if (!code) return;
     try {
@@ -80,38 +105,26 @@ export default function OrderConfirmationPage() {
     }
   };
 
-  const buildWhatsappUrl = (order: PublicOrderStatusResult): string | null => {
-    const digits = onlyDigits(settings.whatsapp_number ?? '');
-    if (!digits) return null;
-    const target = digits.startsWith('55') ? digits : `55${digits}`;
-    const itemLines = order.items
-      .map(
-        (i) =>
-          `• ${i.quantity}x ${i.product_name}${i.variant_name ? ` (${i.variant_name})` : ''} — ${formatBRL(i.line_total)}`,
+  const whatsappUrl = receipt
+    ? buildCustomerToStoreWaUrl(
+        settings.whatsapp_number ?? '',
+        buildOrderReceiptText({
+          storeName: settings.store_name,
+          orderNumber: receipt.order_number,
+          customerName: receipt.customer_name,
+          items: receipt.items,
+          subtotal: receipt.subtotal,
+          discountAmount: receipt.discount_amount,
+          shippingFee: receipt.shipping_fee,
+          total: receipt.total,
+          fulfillmentType: receipt.fulfillment_type,
+          shippingAddress: receipt.shipping_address,
+          pickupAddress: settings.pickup_address,
+          paymentMethod: receipt.payment_method,
+          paymentStatus: receipt.payment_status,
+        }),
       )
-      .join('\n');
-    const fulfillmentText =
-      order.fulfillment_type === 'pickup'
-        ? 'Retirada na Loja'
-        : `Entrega: ${order.shipping_address || 'Endereço cadastrado'}`;
-    const text = [
-      `Olá! Acabei de fazer o pedido *#${order.order_number}* na *${settings.store_name}* 💖`,
-      '',
-      `*Cliente:* ${order.customer_name}`,
-      `*Modalidade:* ${fulfillmentText}`,
-      '',
-      '*Itens:*',
-      itemLines,
-      '',
-      `*Subtotal:* ${formatBRL(order.subtotal)}`,
-      order.discount_amount > 0 ? `*Desconto:* -${formatBRL(order.discount_amount)}` : null,
-      `*Frete:* ${order.shipping_fee === 0 ? 'Grátis' : formatBRL(order.shipping_fee)}`,
-      `*Total:* ${formatBRL(order.total)}`,
-    ]
-      .filter((line) => line !== null)
-      .join('\n');
-    return `https://wa.me/${target}?text=${encodeURIComponent(text)}`;
-  };
+    : '';
 
   return (
     <div className="min-h-screen bg-stone-50">
@@ -141,66 +154,77 @@ export default function OrderConfirmationPage() {
                 <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-bold text-brand">
                   {STATUS_LABELS[receipt.status] ?? receipt.status}
                 </span>
-                <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-700">
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                    receipt.payment_status === 'approved'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-stone-100 text-stone-700'
+                  }`}
+                >
                   {PAYMENT_STATUS_LABELS[receipt.payment_status] ?? receipt.payment_status}
                 </span>
               </div>
             </section>
 
-            <OrderPixCard
-              qrBase64={receipt.mp_pix_qr_base64}
-              qrCode={receipt.mp_pix_qr_code}
-              storePixKey={settings.pix_key}
-              copiedPix={copiedPix}
-              onCopyPix={() => void handleCopyPix()}
-            />
+            {receipt.payment_status === 'approved' && (
+              <section className="rounded-3xl border border-emerald-300 bg-gradient-to-br from-emerald-50 to-white p-5 text-center shadow-sm space-y-1.5">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-xs font-bold text-white">
+                  <Sparkles className="h-3.5 w-3.5" /> Pagamento Confirmado!
+                </div>
+                <p className="text-sm font-bold text-emerald-950">
+                  Tudo certo com o seu pagamento na {settings.store_name}!
+                </p>
+                <p className="text-xs text-emerald-800">
+                  Estamos separando seus produtos com muito carinho.
+                </p>
+              </section>
+            )}
 
-            {buildWhatsappUrl(receipt) && (
+            {receipt.payment_method === 'pix_mp' && receipt.payment_status === 'pending' && (
+              <PixPaymentPanel
+                orderId={receipt.order_id}
+                publicToken={token}
+                initialQrCode={receipt.mp_pix_qr_code}
+                initialQrBase64={receipt.mp_pix_qr_base64}
+                paymentStatus={receipt.payment_status}
+                fallbackWhatsappUrl={whatsappUrl || undefined}
+                onPaymentApproved={handlePaymentApproved}
+              />
+            )}
+
+            {receipt.payment_method === 'card_mp' && receipt.payment_status === 'pending' && (
+              <CardPaymentPanel
+                orderId={receipt.order_id}
+                publicToken={token}
+                total={receipt.total}
+                mpPublicKey={settings.mp_public_key}
+                onPaymentApproved={handlePaymentApproved}
+              />
+            )}
+
+            {receipt.payment_method === 'whatsapp_combine' && receipt.payment_status === 'pending' && (
+              <OrderPixCard
+                qrBase64={receipt.mp_pix_qr_base64}
+                qrCode={receipt.mp_pix_qr_code}
+                storePixKey={settings.pix_key}
+                copiedPix={copiedPix}
+                onCopyPix={() => void handleCopyFallbackPix()}
+              />
+            )}
+
+            {whatsappUrl && (
               <a
-                href={buildWhatsappUrl(receipt) as string}
+                href={whatsappUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 text-sm font-bold text-white shadow-sm hover:bg-emerald-700"
               >
                 <MessageCircle className="h-5 w-5" />
-                Enviar Comprovante / Falar com a Loja no WhatsApp
+                Enviar Comprovante / Acompanhar no WhatsApp
               </a>
             )}
 
-            <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm space-y-3">
-              <h2 className="text-sm font-bold text-stone-900">Itens do Pedido</h2>
-              <div className="space-y-2 text-xs text-stone-700">
-                {receipt.items.map((item, idx) => (
-                  <div key={`${item.product_name}-${idx}`} className="flex justify-between gap-2 border-b border-stone-100 pb-2">
-                    <span>
-                      <strong>{item.quantity}x</strong> {item.product_name}
-                      {item.variant_name ? ` (${item.variant_name})` : ''}
-                    </span>
-                    <span className="shrink-0 font-semibold">{formatBRL(item.line_total)}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="space-y-1 text-xs text-stone-600 pt-1">
-                <div className="flex justify-between"><span>Subtotal</span><span>{formatBRL(receipt.subtotal)}</span></div>
-                {receipt.discount_amount > 0 && (
-                  <div className="flex justify-between text-emerald-700 font-semibold"><span>Desconto</span><span>-{formatBRL(receipt.discount_amount)}</span></div>
-                )}
-                <div className="flex justify-between"><span>Frete</span><span>{receipt.shipping_fee === 0 ? 'Grátis' : formatBRL(receipt.shipping_fee)}</span></div>
-                <div className="flex justify-between pt-2 text-base font-extrabold text-stone-900"><span>Total</span><span className="text-brand">{formatBRL(receipt.total)}</span></div>
-              </div>
-            </section>
-
-            <section className="rounded-3xl border border-stone-200 bg-white p-4 text-xs text-stone-600 shadow-sm space-y-1">
-              <p className="flex items-center gap-1.5 font-bold text-stone-900">
-                {receipt.fulfillment_type === 'pickup' ? <Store className="h-4 w-4 text-brand" /> : <MapPin className="h-4 w-4 text-brand" />}
-                {receipt.fulfillment_type === 'pickup' ? 'Retirada na Loja' : 'Endereço de Entrega'}
-              </p>
-              <p>
-                {receipt.fulfillment_type === 'pickup'
-                  ? settings.pickup_address || 'Combine a retirada pelo WhatsApp.'
-                  : receipt.shipping_address || 'Endereço registrado no pedido.'}
-              </p>
-            </section>
+            <OrderReceiptDetailsCard receipt={receipt} pickupAddress={settings.pickup_address} />
 
             <div className="text-center pt-2">
               <Link to="/" className="inline-flex min-h-[44px] items-center gap-1.5 text-xs font-semibold text-brand hover:underline">

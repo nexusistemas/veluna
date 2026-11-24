@@ -1,6 +1,6 @@
 import { isSupabaseConfigured, supabase } from './supabase';
 
-export type CatalogImageFolder = 'products' | 'variants' | 'banners' | 'categories';
+export type CatalogImageFolder = 'products' | 'variants' | 'banners' | 'categories' | 'branding';
 
 function loadImageFromFile(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
