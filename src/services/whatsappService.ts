@@ -1,6 +1,6 @@
 import { formatBRL, onlyDigits } from '../lib/formatters';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
-import type { FulfillmentType, PaymentMethod, PaymentStatus } from '../types/database';
+import type { FulfillmentType, OrderStatus, PaymentMethod, PaymentStatus } from '../types/database';
 
 export interface OrderReceiptTextItem {
   product_name: string;
@@ -11,7 +11,7 @@ export interface OrderReceiptTextItem {
 
 export interface OrderReceiptTextParams {
   storeName: string;
-  orderNumber: string;
+  orderNumber: string | number;
   customerName: string;
   items: OrderReceiptTextItem[];
   subtotal: number;
@@ -26,10 +26,22 @@ export interface OrderReceiptTextParams {
   notes?: string | null;
 }
 
+export interface OrderStatusUpdateTextParams {
+  storeName: string;
+  orderNumber: string | number;
+  customerName: string;
+  status: OrderStatus;
+  fulfillmentType: FulfillmentType;
+  pickupAddress?: string | null;
+}
+
 const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   pix_mp: 'Pix (Mercado Pago)',
   card_mp: 'Cartão de Crédito (Online)',
   whatsapp_combine: 'Combinar pelo WhatsApp',
+  pos_pix_mp: 'Pix QR no Balcão (Mercado Pago)',
+  pos_card_presential: 'Cartão Presencial / Point Tap',
+  pos_cash: 'Dinheiro',
   pix: 'Pix',
   credit_card: 'Cartão de Crédito',
   debit_card: 'Cartão de Débito',
@@ -77,9 +89,18 @@ export function buildOrderReceiptText(params: OrderReceiptTextParams): string {
   });
 
   const fulfillmentLabel =
-    fulfillmentType === 'pickup'
-      ? `Retirada na Loja${pickupAddress ? ` (${pickupAddress})` : ''}`
-      : `Entrega: ${shippingAddress || 'Endereço cadastrado no pedido'}`;
+    fulfillmentType === 'in_store'
+      ? 'Compra Presencial no Balcão'
+      : fulfillmentType === 'pickup'
+        ? `Retirada na Loja${pickupAddress ? ` (${pickupAddress})` : ''}`
+        : `Entrega: ${shippingAddress || 'Endereço cadastrado no pedido'}`;
+
+  const fulfillmentHeading =
+    fulfillmentType === 'in_store'
+      ? 'Atendimento'
+      : fulfillmentType === 'pickup'
+        ? 'Retirada'
+        : 'Entrega';
 
   const methodLabel = PAYMENT_METHOD_LABELS[paymentMethod] ?? paymentMethod;
   const statusLabel = PAYMENT_STATUS_LABELS[paymentStatus] ?? paymentStatus;
@@ -89,14 +110,16 @@ export function buildOrderReceiptText(params: OrderReceiptTextParams): string {
     `🛍️ *Pedido #${orderNumber}*`,
     '',
     `👤 *Cliente:* ${customerName}`,
-    `📦 *${fulfillmentType === 'pickup' ? 'Retirada' : 'Entrega'}:* ${fulfillmentLabel}`,
+    `📦 *${fulfillmentHeading}:* ${fulfillmentLabel}`,
     '',
     '*Itens do pedido:*',
     ...itemLines,
     '',
     `Subtotal: ${formatBRL(subtotal)}`,
     discountAmount > 0 ? `Desconto: -${formatBRL(discountAmount)}` : null,
-    `Frete: ${shippingFee === 0 ? 'Grátis' : formatBRL(shippingFee)}`,
+    fulfillmentType === 'in_store'
+      ? null
+      : `Frete: ${shippingFee === 0 ? 'Grátis' : formatBRL(shippingFee)}`,
     `💖 *Total: ${formatBRL(total)}*`,
     '',
     `💳 *Pagamento:* ${methodLabel}`,
@@ -105,6 +128,47 @@ export function buildOrderReceiptText(params: OrderReceiptTextParams): string {
   ];
 
   return lines.filter((line): line is string => line !== null).join('\n');
+}
+
+export function buildOrderStatusUpdateText(params: OrderStatusUpdateTextParams): string {
+  const { storeName, orderNumber, customerName, status, fulfillmentType, pickupAddress } = params;
+  const firstName = customerName.trim().split(/\s+/)[0] || 'cliente';
+  const addressSuffix = pickupAddress?.trim() ? `\n📍 *Endereço:* ${pickupAddress.trim()}` : '';
+
+  let body = `Seu pedido *#${orderNumber}* foi atualizado.`;
+
+  switch (status) {
+    case 'paid':
+    case 'confirmed':
+      body = `✅ Recebemos a confirmação do seu pagamento do pedido *#${orderNumber}*! Ele já está indo para a separação.`;
+      break;
+    case 'preparing':
+      body = `💖 Estamos separando os seus cosméticos do pedido *#${orderNumber}* com todo carinho! Em breve te avisamos assim que ficar pronto.`;
+      break;
+    case 'ready_for_pickup':
+    case 'ready':
+      body = `🛍️ Ótima notícia! Seu pedido *#${orderNumber}* já está *pronto para retirada* na loja.${addressSuffix}`;
+      break;
+    case 'out_for_delivery':
+      body = `🛵 Seu pedido *#${orderNumber}* acabou de *sair para entrega*! Fique de olho que logo chega até você.`;
+      break;
+    case 'completed':
+    case 'delivered':
+      body =
+        fulfillmentType === 'in_store'
+          ? `✨ Muito obrigada pela sua compra na *${storeName}* (Pedido *#${orderNumber}*)! Esperamos que você ame os seus cosméticos. Qualquer dúvida, estamos por aqui! 💖`
+          : `✨ Pedido *#${orderNumber}* finalizado! Muito obrigada por escolher a *${storeName}*. Esperamos que você ame cada produto! 💖`;
+      break;
+    case 'pending_payment':
+    case 'pending':
+      body = `⏳ Seu pedido *#${orderNumber}* está reservado e aguardando a confirmação do pagamento. Se precisar de ajuda ou do código Pix novamente, é só me chamar aqui!`;
+      break;
+    case 'cancelled':
+      body = `ℹ️ Passando para avisar que o pedido *#${orderNumber}* foi cancelado. Se quiser refazer ou tirar alguma dúvida, estou à disposição!`;
+      break;
+  }
+
+  return [`✨ *${storeName}*`, `Olá, ${firstName}!`, '', body].join('\n');
 }
 
 export function buildCustomerToStoreWaUrl(storePhone: string, text: string): string {

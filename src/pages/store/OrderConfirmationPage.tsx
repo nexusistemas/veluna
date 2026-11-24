@@ -28,8 +28,10 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   confirmed: 'Confirmado',
   preparing: 'Em separação',
   ready: 'Pronto para retirada',
+  ready_for_pickup: 'Pronto para retirada',
   out_for_delivery: 'Saiu para entrega',
   delivered: 'Entregue',
+  completed: 'Concluído',
   cancelled: 'Cancelado',
 };
 

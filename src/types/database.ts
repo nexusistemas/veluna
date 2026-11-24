@@ -1,9 +1,9 @@
 export type DeliveryMode = 'zones' | 'radius' | 'both';
 export type DiscountType = 'percentage' | 'fixed' | 'free_shipping';
-export type OrderChannel = 'online' | 'pdv';
-export type OrderStatus = 'pending' | 'pending_payment' | 'paid' | 'confirmed' | 'preparing' | 'ready' | 'out_for_delivery' | 'delivered' | 'cancelled';
-export type FulfillmentType = 'delivery' | 'pickup';
-export type PaymentMethod = 'pix_mp' | 'card_mp' | 'whatsapp_combine' | 'pix' | 'credit_card' | 'debit_card' | 'cash';
+export type OrderChannel = 'online' | 'pos' | 'pdv';
+export type OrderStatus = 'pending' | 'pending_payment' | 'paid' | 'confirmed' | 'preparing' | 'ready' | 'ready_for_pickup' | 'out_for_delivery' | 'delivered' | 'completed' | 'cancelled';
+export type FulfillmentType = 'delivery' | 'pickup' | 'in_store';
+export type PaymentMethod = 'pix_mp' | 'card_mp' | 'whatsapp_combine' | 'pos_pix_mp' | 'pos_card_presential' | 'pos_cash' | 'pix' | 'credit_card' | 'debit_card' | 'cash';
 export type PaymentStatus = 'pending' | 'approved' | 'rejected' | 'refunded' | 'cancelled';
 
 export interface AdminUser {
@@ -144,7 +144,7 @@ export interface DeliveryZone {
 }
 export interface Order {
   id: string;
-  order_number: string;
+  order_number: string | number;
   public_access_token: string;
   channel: OrderChannel;
   status: OrderStatus;
@@ -164,6 +164,7 @@ export interface Order {
   discount_amount: number;
   shipping_fee: number;
   total: number;
+  total_cost?: number;
   notes: string | null;
   whatsapp_notified?: boolean;
   created_at: string;
@@ -178,6 +179,7 @@ export interface OrderItem {
   variant_name: string | null;
   sku: string | null;
   unit_price: number;
+  unit_cost?: number;
   quantity: number;
   line_total: number;
   created_at: string;
@@ -196,7 +198,7 @@ export interface CreateOrderPayload {
   fulfillment_type: FulfillmentType;
   payment_method: PaymentMethod;
   customer_name: string;
-  customer_phone: string;
+  customer_phone?: string | null;
   customer_email?: string | null;
   customer_cpf?: string | null;
   shipping_cep?: string | null;
@@ -208,12 +210,13 @@ export interface CreateOrderPayload {
   shipping_state?: string | null;
   shipping_fee: number;
   coupon_code?: string | null;
+  manual_discount?: number;
   notes?: string | null;
   items: Array<{ variant_id: string; quantity: number }>;
 }
 export interface CreateOrderResult {
   order_id: string;
-  order_number: string;
+  order_number: string | number;
   public_access_token: string;
   subtotal: number;
   discount_amount: number;
@@ -224,7 +227,7 @@ export interface CreateOrderResult {
 }
 export interface PublicOrderStatusResult {
   order_id: string;
-  order_number: string;
+  order_number: string | number;
   status: OrderStatus;
   payment_status: PaymentStatus;
   payment_method: PaymentMethod;

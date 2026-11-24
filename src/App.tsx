@@ -6,12 +6,13 @@ import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { StoreSettingsProvider } from './contexts/StoreSettingsContext';
 import AdminDashboardHome from './pages/admin/AdminDashboardHome';
-import AdminModulePlaceholder from './pages/admin/AdminModulePlaceholder';
 import BannersPage from './pages/admin/BannersPage';
 import CategoriesPage from './pages/admin/CategoriesPage';
 import CouponsPage from './pages/admin/CouponsPage';
 import DeliverySettingsPage from './pages/admin/DeliverySettingsPage';
 import LoginPage from './pages/admin/LoginPage';
+import OrdersPage from './pages/admin/OrdersPage';
+import PosPage from './pages/admin/PosPage';
 import ProductEditorPage from './pages/admin/ProductEditorPage';
 import ProductsListPage from './pages/admin/ProductsListPage';
 import ResetPasswordPage from './pages/admin/ResetPasswordPage';
@@ -40,7 +41,7 @@ export default function App() {
               <Route path="/painel" element={<ProtectedRoute />}>
                 <Route element={<AdminLayout />}>
                   <Route index element={<AdminDashboardHome />} />
-                  <Route path="pdv" element={<AdminModulePlaceholder moduleKey="pdv" />} />
+                  <Route path="pdv" element={<PosPage />} />
                   <Route path="produtos" element={<ProductsListPage />} />
                   <Route path="produtos/novo" element={<ProductEditorPage />} />
                   <Route path="produtos/:id" element={<ProductEditorPage />} />
@@ -48,7 +49,7 @@ export default function App() {
                   <Route path="banners" element={<BannersPage />} />
                   <Route path="cupons" element={<CouponsPage />} />
                   <Route path="entrega" element={<DeliverySettingsPage />} />
-                  <Route path="pedidos" element={<AdminModulePlaceholder moduleKey="pedidos" />} />
+                  <Route path="pedidos" element={<OrdersPage />} />
                   <Route path="configuracoes" element={<SettingsPage />} />
                 </Route>
               </Route>
