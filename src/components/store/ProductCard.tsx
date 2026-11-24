@@ -161,7 +161,13 @@ export default function ProductCard({ product }: ProductCardProps) {
               to={`/produto/${product.slug}`}
               className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-2xl border border-brand-200 bg-brand-50 px-3 text-xs font-semibold text-brand transition hover:bg-brand hover:text-white"
             >
-              <Palette className="h-4 w-4" /> Escolher Tom
+              {(product.variant_cta_label ?? '').toLowerCase().includes('aroma') ||
+              (product.variant_cta_label ?? '').toLowerCase().includes('fragr') ? (
+                <Sparkles className="h-4 w-4" />
+              ) : (
+                <Palette className="h-4 w-4" />
+              )}
+              {product.variant_cta_label?.trim() || 'Escolher Tom'}
             </Link>
           )}
         </div>

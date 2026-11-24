@@ -8,12 +8,14 @@ import {
   ShoppingBag,
   TicketPercent,
   Truck,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 
 export type AdminModuleKey =
   | 'pdv'
   | 'produtos'
+  | 'clientes'
   | 'categorias'
   | 'banners'
   | 'cupons'
@@ -35,6 +37,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { id: 'pdv', label: 'PDV', to: '/painel/pdv', icon: ScanBarcode, primaryMobile: true },
   { id: 'produtos', label: 'Produtos', to: '/painel/produtos', icon: Package, primaryMobile: true },
   { id: 'pedidos', label: 'Pedidos', to: '/painel/pedidos', icon: ShoppingBag, primaryMobile: true },
+  { id: 'clientes', label: 'Clientes', to: '/painel/clientes', icon: Users, primaryMobile: false },
   { id: 'categorias', label: 'Categorias', to: '/painel/categorias', icon: FolderTree, primaryMobile: false },
   { id: 'banners', label: 'Banners', to: '/painel/banners', icon: Image, primaryMobile: false },
   { id: 'cupons', label: 'Cupons', to: '/painel/cupons', icon: TicketPercent, primaryMobile: false },
@@ -64,6 +67,12 @@ export const ADMIN_MODULE_META: Record<AdminModuleKey, AdminModuleMeta> = {
     stageLabel: 'Etapa 4',
     description: 'Cadastro completo de cosméticos, tons, lotes, validade, fotos WebP e estoque.',
     icon: Package,
+  },
+  clientes: {
+    title: 'Clientes Cadastrados',
+    stageLabel: 'Etapa 8',
+    description: 'Gerenciamento de contas de clientes, edição de dados, redefinição de senhas e exclusão.',
+    icon: Users,
   },
   categorias: {
     title: 'Categorias do Catálogo',

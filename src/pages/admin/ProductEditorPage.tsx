@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, Loader2, Save } from 'lucide-react';
 import ProductImagesSection from '../../components/admin/products/ProductImagesSection';
 import ProductKitsSection from '../../components/admin/products/ProductKitsSection';
+import ProductMainFieldsSection from '../../components/admin/products/ProductMainFieldsSection';
 import ProductVariantsSection, {
   createEmptyVariant,
 } from '../../components/admin/products/ProductVariantsSection';
@@ -33,6 +34,7 @@ export default function ProductEditorPage() {
   const [name, setName] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [brand, setBrand] = useState('');
+  const [variantCtaLabel, setVariantCtaLabel] = useState('Escolher Tom');
   const [description, setDescription] = useState('');
   const [isFeatured, setIsFeatured] = useState(false);
   const [isFlashSale, setIsFlashSale] = useState(false);
@@ -62,6 +64,7 @@ export default function ProductEditorPage() {
           setName(fullProduct.name);
           setCategoryId(fullProduct.category_id ?? '');
           setBrand(fullProduct.brand ?? '');
+          setVariantCtaLabel(fullProduct.variant_cta_label?.trim() || 'Escolher Tom');
           setDescription(fullProduct.description ?? '');
           setIsFeatured(fullProduct.is_featured);
           setIsFlashSale(fullProduct.is_flash_sale);
@@ -71,20 +74,11 @@ export default function ProductEditorPage() {
           setVariants(
             fullProduct.product_variants.length > 0
               ? fullProduct.product_variants.map((v) => ({
-                  id: v.id,
-                  name: v.name,
-                  color_name: v.color_name ?? '',
-                  color_hex: v.color_hex,
-                  size_label: v.size_label ?? '',
-                  ean_barcode: v.ean_barcode ?? '',
-                  sku: v.sku ?? '',
-                  cost_price: v.cost_price,
-                  price: v.price,
-                  promo_price: v.promo_price,
-                  stock_qty: v.stock_qty,
-                  batch_expiry_date: v.batch_expiry_date,
-                  variant_image_url: v.variant_image_url,
-                  is_active: v.is_active,
+                  id: v.id, name: v.name, color_name: v.color_name ?? '', color_hex: v.color_hex,
+                  size_label: v.size_label ?? '', ean_barcode: v.ean_barcode ?? '', sku: v.sku ?? '',
+                  cost_price: v.cost_price, price: v.price, promo_price: v.promo_price,
+                  stock_qty: v.stock_qty, batch_expiry_date: v.batch_expiry_date,
+                  variant_image_url: v.variant_image_url, is_active: v.is_active,
                 }))
               : [createEmptyVariant('Padrão')],
           );
@@ -102,41 +96,29 @@ export default function ProductEditorPage() {
       }
     };
     void load();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [id]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrorMsg(null);
-
     if (!name.trim()) {
       setErrorMsg('Informe o nome do produto.');
       return;
     }
-
     const validVariants = variants.filter((v) => v.name.trim() && v.price > 0);
     if (validVariants.length === 0 || validVariants.length !== variants.length) {
       setErrorMsg('Preencha nome e preço de venda válido (maior que zero) em todas as variantes.');
       return;
     }
-
     setSaving(true);
     try {
       await saveProductFullAdmin({
-        id,
-        name,
-        category_id: categoryId || null,
-        brand,
-        description,
-        is_featured: isFeatured,
-        is_flash_sale: isFlashSale,
-        is_bestseller: isBestseller,
-        is_active: isActive,
-        images,
-        variants,
-        kits,
+        id, name, category_id: categoryId || null, brand,
+        variant_cta_label: variantCtaLabel, description,
+        is_featured: isFeatured, is_flash_sale: isFlashSale,
+        is_bestseller: isBestseller, is_active: isActive,
+        images, variants, kits,
       });
       navigate('/painel/produtos', { replace: true });
     } catch (err) {
@@ -168,7 +150,7 @@ export default function ProductEditorPage() {
           <h1 className="text-xl font-bold text-stone-900">
             {isEditing ? 'Editar Produto' : 'Novo Produto'}
           </h1>
-          <p className="text-xs text-stone-500">Informações gerais, fotos WebP, tons e estoque</p>
+          <p className="text-xs text-stone-500">Informações gerais, fotos WebP, variações e estoque</p>
         </div>
       </div>
 
@@ -179,45 +161,17 @@ export default function ProductEditorPage() {
         </div>
       )}
 
-      <section className="rounded-3xl border border-stone-200 bg-white p-4 sm:p-5 shadow-sm space-y-4">
-        <h2 className="text-base font-bold text-stone-900">Dados Principais</h2>
-        <div>
-          <label className="block text-xs font-semibold text-stone-700">Nome do Produto *</label>
-          <input type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Base Líquida Matte Soft" className="mt-1 h-12 w-full rounded-2xl border border-stone-200 bg-stone-50 px-3.5 text-sm focus:border-brand focus:bg-white focus:outline-none" />
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <label className="block text-xs font-semibold text-stone-700">Categoria</label>
-            <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="mt-1 h-12 w-full rounded-2xl border border-stone-200 bg-stone-50 px-3.5 text-sm focus:border-brand focus:bg-white focus:outline-none">
-              <option value="">Sem categoria</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-stone-700">Marca</label>
-            <input type="text" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Ex: Bruna Tavares, Boca Rosa" className="mt-1 h-12 w-full rounded-2xl border border-stone-200 bg-stone-50 px-3.5 text-sm focus:border-brand focus:bg-white focus:outline-none" />
-          </div>
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-stone-700">Descrição</label>
-          <textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Detalhes, modo de uso, acabamento..." className="mt-1 w-full rounded-2xl border border-stone-200 bg-stone-50 p-3.5 text-sm focus:border-brand focus:bg-white focus:outline-none" />
-        </div>
-        <div className="grid grid-cols-2 gap-2.5 pt-1">
-          {[
-            { label: 'Destaque na Home', checked: isFeatured, set: setIsFeatured },
-            { label: 'Oferta Relâmpago', checked: isFlashSale, set: setIsFlashSale },
-            { label: 'Mais Vendido', checked: isBestseller, set: setIsBestseller },
-            { label: 'Produto Ativo', checked: isActive, set: setIsActive },
-          ].map((flag) => (
-            <label key={flag.label} className="flex min-h-[44px] cursor-pointer items-center gap-2.5 rounded-2xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-700">
-              <input type="checkbox" checked={flag.checked} onChange={(e) => flag.set(e.target.checked)} className="h-4 w-4 rounded accent-brand" />
-              <span>{flag.label}</span>
-            </label>
-          ))}
-        </div>
-      </section>
+      <ProductMainFieldsSection
+        name={name} onNameChange={setName}
+        categoryId={categoryId} onCategoryChange={setCategoryId} categories={categories}
+        brand={brand} onBrandChange={setBrand}
+        variantCtaLabel={variantCtaLabel} onVariantCtaLabelChange={setVariantCtaLabel}
+        description={description} onDescriptionChange={setDescription}
+        isFeatured={isFeatured} onFeaturedChange={setIsFeatured}
+        isFlashSale={isFlashSale} onFlashSaleChange={setIsFlashSale}
+        isBestseller={isBestseller} onBestsellerChange={setIsBestseller}
+        isActive={isActive} onActiveChange={setIsActive}
+      />
 
       <ProductImagesSection images={images} onChange={setImages} />
       <ProductVariantsSection variants={variants} onChange={setVariants} />

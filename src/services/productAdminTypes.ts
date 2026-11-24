@@ -58,6 +58,7 @@ export interface SaveProductFullInput {
   category_id: string | null;
   brand: string;
   description: string;
+  variant_cta_label: string;
   is_featured: boolean;
   is_flash_sale: boolean;
   is_bestseller: boolean;

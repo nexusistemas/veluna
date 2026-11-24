@@ -194,6 +194,7 @@ export async function saveProductFullAdmin(input: SaveProductFullInput): Promise
     category_id: input.category_id || null,
     brand: input.brand.trim() || null,
     description: input.description.trim() || null,
+    variant_cta_label: input.variant_cta_label.trim() || null,
     is_featured: input.is_featured,
     is_flash_sale: input.is_flash_sale,
     is_bestseller: input.is_bestseller,

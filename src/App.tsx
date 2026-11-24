@@ -10,6 +10,7 @@ import AdminDashboardHome from './pages/admin/AdminDashboardHome';
 import BannersPage from './pages/admin/BannersPage';
 import CategoriesPage from './pages/admin/CategoriesPage';
 import CouponsPage from './pages/admin/CouponsPage';
+import CustomersPage from './pages/admin/CustomersPage';
 import DeliverySettingsPage from './pages/admin/DeliverySettingsPage';
 import LoginPage from './pages/admin/LoginPage';
 import OrdersPage from './pages/admin/OrdersPage';
@@ -54,6 +55,7 @@ export default function App() {
                   <Route path="cupons" element={<CouponsPage />} />
                   <Route path="entrega" element={<DeliverySettingsPage />} />
                   <Route path="pedidos" element={<OrdersPage />} />
+                  <Route path="clientes" element={<CustomersPage />} />
                   <Route path="configuracoes" element={<SettingsPage />} />
                 </Route>
               </Route>

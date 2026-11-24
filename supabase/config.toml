@@ -6,3 +6,9 @@ verify_jwt = false
 
 [functions.notify-order-whatsapp]
 verify_jwt = false
+
+[functions.customer-auth]
+verify_jwt = false
+
+[functions.admin-customers]
+verify_jwt = false

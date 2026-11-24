@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, ShoppingBag } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Loader2, ShoppingBag } from 'lucide-react';
 import CheckoutCustomerBanner from '../../components/store/CheckoutCustomerBanner';
+import CustomerAuthGateCard from '../../components/store/CustomerAuthGateCard';
 import CheckoutCustomerSection, { type CheckoutCustomerFields } from '../../components/store/CheckoutCustomerSection';
 import CheckoutShippingForm, { type CheckoutAddressFields } from '../../components/store/CheckoutShippingForm';
 import CheckoutSummaryCard from '../../components/store/CheckoutSummaryCard';
@@ -26,7 +27,7 @@ const EMPTY_ADDR: CheckoutAddressFields = { street: '', number: '', complement: 
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { settings } = useStoreSettings();
   const {
     items, subtotal, discountAmount, appliedCoupon,
@@ -110,18 +111,13 @@ export default function CheckoutPage() {
   const handleProfileLoaded = useCallback((profile: CustomerProfile) => {
     setCustomer((prev) => ({
       ...prev,
-      name: prev.name || profile.full_name,
-      phone: prev.phone || formatPhoneBR(profile.whatsapp),
-      email: prev.email || profile.email,
-      cpf: prev.cpf || profile.cpf,
+      name: prev.name || profile.full_name, phone: prev.phone || formatPhoneBR(profile.whatsapp),
+      email: prev.email || profile.email, cpf: prev.cpf || profile.cpf,
     }));
     setAddress((prev) => ({
-      street: prev.street || profile.street,
-      number: prev.number || profile.number,
-      complement: prev.complement || profile.complement,
-      neighborhood: prev.neighborhood || profile.neighborhood,
-      city: prev.city || profile.city,
-      state: prev.state || profile.state,
+      street: prev.street || profile.street, number: prev.number || profile.number,
+      complement: prev.complement || profile.complement, neighborhood: prev.neighborhood || profile.neighborhood,
+      city: prev.city || profile.city, state: prev.state || profile.state,
     }));
     const savedCep = cleanCep(profile.cep);
     if (savedCep.length === 8) {
@@ -132,12 +128,7 @@ export default function CheckoutPage() {
   }, []);
 
   const deliveryOption = shippingResult?.options.find((o) => o.fulfillmentType === 'delivery');
-  const effectiveShippingFee =
-    fulfillmentType === 'pickup'
-      ? 0
-      : deliveryOption
-        ? deliveryOption.isFreeShipping || isFreeShippingCoupon ? 0 : deliveryOption.fee
-        : 0;
+  const effectiveShippingFee = fulfillmentType === 'pickup' ? 0 : deliveryOption ? (deliveryOption.isFreeShipping || isFreeShippingCoupon ? 0 : deliveryOption.fee) : 0;
   const grandTotal = Math.max(0, subtotal - discountAmount + effectiveShippingFee);
 
   const handleApplyCoupon = async () => {
@@ -150,19 +141,21 @@ export default function CheckoutPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmitError(null);
+    if (!user) {
+      setSubmitError('Conecte-se com sua conta Google ou CPF e senha para finalizar o pedido.');
+      return;
+    }
     if (!customer.name.trim() || onlyDigits(customer.phone).length < 10) {
       setSubmitError('Informe seu nome completo e um WhatsApp válido com DDD.');
       return;
     }
-    if (fulfillmentType === 'delivery') {
-      if (!deliveryOption) {
-        setSubmitError('Calcule o frete pelo GPS ou CEP atendido para entrega, ou escolha Retirar na Loja.');
-        return;
-      }
-      if (!address.street.trim() || !address.number.trim() || !address.neighborhood.trim()) {
-        setSubmitError('Preencha rua, número e bairro para a entrega.');
-        return;
-      }
+    if (fulfillmentType === 'delivery' && !deliveryOption) {
+      setSubmitError('Calcule o frete pelo GPS ou CEP atendido para entrega, ou escolha Retirar na Loja.');
+      return;
+    }
+    if (fulfillmentType === 'delivery' && (!address.street.trim() || !address.number.trim() || !address.neighborhood.trim())) {
+      setSubmitError('Preencha rua, número e bairro para a entrega.');
+      return;
     }
 
     setSubmitting(true);
@@ -212,28 +205,42 @@ export default function CheckoutPage() {
           <ArrowLeft className="h-4 w-4" /> Continuar comprando
         </Link>
         <h1 className="text-2xl font-extrabold text-stone-900 mb-4">Finalizar Pedido</h1>
-        <CheckoutCustomerBanner onProfileLoaded={handleProfileLoaded} />
-        {submitError && (
-          <div role="alert" className="mb-4 flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-3.5 text-sm text-rose-800">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{submitError}</span>
+        {authLoading ? (
+          <div className="flex justify-center rounded-3xl border border-stone-200 bg-white py-16 text-brand">
+            <Loader2 className="h-7 w-7 animate-spin" />
           </div>
+        ) : !user ? (
+          <CustomerAuthGateCard
+            redirectHashRoute="/checkout"
+            title="Entre ou cadastre-se para finalizar"
+            subtitle="É obrigatório estar conectada com sua conta Google ou cadastro por Nome, CPF e Senha para fechar pedidos e acompanhar entregas."
+          />
+        ) : (
+          <>
+            <CheckoutCustomerBanner onProfileLoaded={handleProfileLoaded} />
+            {submitError && (
+              <div role="alert" className="mb-4 flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-3.5 text-sm text-rose-800">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{submitError}</span>
+              </div>
+            )}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <CheckoutCustomerSection customer={customer} onChange={(p) => setCustomer((prev) => ({ ...prev, ...p }))} />
+              <CheckoutShippingForm
+                settings={settings} fulfillmentType={fulfillmentType} onFulfillmentChange={setFulfillmentType}
+                cep={cep} onCepChange={setCep} address={address} onAddressChange={(p) => setAddress((prev) => ({ ...prev, ...p }))}
+                shippingResult={shippingResult} calculating={calculatingCep} shippingError={shippingError}
+                onCalculateCep={(c) => void handleCalculateCep(c)} onGpsLocationConfirmed={handleGpsConfirmed} isFreeShippingCoupon={isFreeShippingCoupon}
+              />
+              <CheckoutSummaryCard
+                items={items} subtotal={subtotal} discountAmount={discountAmount} shippingFee={effectiveShippingFee}
+                grandTotal={grandTotal} fulfillmentType={fulfillmentType} paymentMethod={paymentMethod} onPaymentChange={setPaymentMethod}
+                appliedCoupon={appliedCoupon} couponInput={couponInput} onCouponInputChange={setCouponInput}
+                onApplyCoupon={() => void handleApplyCoupon()} onRemoveCoupon={removeCoupon} couponMsg={couponMsg} submitting={submitting}
+              />
+            </form>
+          </>
         )}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <CheckoutCustomerSection customer={customer} onChange={(p) => setCustomer((prev) => ({ ...prev, ...p }))} />
-          <CheckoutShippingForm
-            settings={settings} fulfillmentType={fulfillmentType} onFulfillmentChange={setFulfillmentType}
-            cep={cep} onCepChange={setCep} address={address} onAddressChange={(p) => setAddress((prev) => ({ ...prev, ...p }))}
-            shippingResult={shippingResult} calculating={calculatingCep} shippingError={shippingError}
-            onCalculateCep={(c) => void handleCalculateCep(c)} onGpsLocationConfirmed={handleGpsConfirmed} isFreeShippingCoupon={isFreeShippingCoupon}
-          />
-          <CheckoutSummaryCard
-            items={items} subtotal={subtotal} discountAmount={discountAmount} shippingFee={effectiveShippingFee}
-            grandTotal={grandTotal} fulfillmentType={fulfillmentType} paymentMethod={paymentMethod} onPaymentChange={setPaymentMethod}
-            appliedCoupon={appliedCoupon} couponInput={couponInput} onCouponInputChange={setCouponInput}
-            onApplyCoupon={() => void handleApplyCoupon()} onRemoveCoupon={removeCoupon} couponMsg={couponMsg} submitting={submitting}
-          />
-        </form>
       </main>
     </div>
   );

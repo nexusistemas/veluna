@@ -6,28 +6,28 @@ import {
   Loader2,
   LogOut,
   Package,
-  Sparkles,
   UserRound,
 } from 'lucide-react';
+import CustomerAuthGateCard from '../../components/store/CustomerAuthGateCard';
 import CustomerOrdersListCard from '../../components/store/CustomerOrdersListCard';
 import CustomerProfileFormCard from '../../components/store/CustomerProfileFormCard';
-import SocialLoginButtons from '../../components/store/SocialLoginButtons';
 import StoreHeader from '../../components/store/StoreHeader';
 import { useAuth } from '../../contexts/AuthContext';
-import { useStoreSettings } from '../../contexts/StoreSettingsContext';
+import { formatAccountIdentifier, isInternalCpfEmail } from '../../services/customerAuthService';
 
 export default function CustomerAccountPage() {
   const { user, isAdmin, loading, signOut } = useAuth();
-  const { settings } = useStoreSettings();
   const [activeTab, setActiveTab] = useState<'orders' | 'profile'>('orders');
 
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
   const displayName =
     String(meta.full_name ?? meta.name ?? '').trim() ||
-    user?.email?.split('@')[0] ||
+    (!isInternalCpfEmail(user?.email) ? user?.email?.split('@')[0] : '') ||
     'Cliente Veluna';
   const avatarUrl = String(meta.avatar_url ?? meta.picture ?? '').trim();
   const initial = displayName.charAt(0).toUpperCase() || 'V';
+  const accountLabel = formatAccountIdentifier(user?.email, String(meta.cpf ?? ''));
+  const cleanFallbackEmail = isInternalCpfEmail(user?.email) ? '' : (user?.email ?? '');
 
   return (
     <div className="min-h-screen bg-stone-50">
@@ -46,29 +46,7 @@ export default function CustomerAccountPage() {
             <p className="mt-2 text-xs font-medium">Verificando sua conta...</p>
           </div>
         ) : !user ? (
-          <section className="mx-auto max-w-md rounded-3xl border border-brand-100 bg-white p-6 sm:p-8 shadow-sm text-center space-y-5">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand text-white shadow-sm">
-              <Sparkles className="h-7 w-7" aria-hidden="true" />
-            </div>
-            <div className="space-y-1.5">
-              <p className="text-xs font-bold uppercase tracking-widest text-brand">
-                {settings.store_name}
-              </p>
-              <h1 className="text-2xl font-extrabold text-stone-900">Sua Conta Veluna</h1>
-              <p className="text-sm text-stone-500 leading-relaxed">
-                Entre com 1 toque para acompanhar seus pedidos em tempo real, acessar recibos Pix e
-                deixar seu endereço salvo para próximas compras.
-              </p>
-            </div>
-
-            {settings.google_auth_enabled || settings.apple_auth_enabled ? (
-              <SocialLoginButtons redirectHashRoute="/minha-conta" />
-            ) : (
-              <p className="rounded-2xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-900">
-                O login social está temporariamente desativado pela loja. Você pode continuar comprando normalmente no checkout.
-              </p>
-            )}
-          </section>
+          <CustomerAuthGateCard redirectHashRoute="/minha-conta" />
         ) : (
           <>
             <section className="rounded-3xl border border-brand-100 bg-white p-4 sm:p-5 shadow-sm">
@@ -88,7 +66,7 @@ export default function CustomerAccountPage() {
                   <div className="min-w-0">
                     <p className="text-xs font-semibold text-brand">Olá, bem-vinda!</p>
                     <h1 className="text-lg font-extrabold text-stone-900 truncate">{displayName}</h1>
-                    <p className="text-xs text-stone-500 truncate">{user.email}</p>
+                    <p className="text-xs text-stone-500 truncate">{accountLabel}</p>
                   </div>
                 </div>
 
@@ -143,7 +121,7 @@ export default function CustomerAccountPage() {
               <CustomerProfileFormCard
                 userId={user.id}
                 fallbackName={displayName}
-                fallbackEmail={user.email ?? ''}
+                fallbackEmail={cleanFallbackEmail}
               />
             )}
           </>

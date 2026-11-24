@@ -184,7 +184,7 @@ export default function ProductDetailPage() {
 
             <div className="space-y-2">
               <p className="text-xs font-bold text-stone-700">
-                Tom / Opção:{' '}
+                {(product.variant_cta_label?.trim() || 'Tom / Opção').replace(/^escolher\s+/i, '')}:{' '}
                 <span className="text-brand">
                   {[selectedVariant.name, selectedVariant.color_name, selectedVariant.size_label].filter(Boolean).join(' • ')}
                 </span>

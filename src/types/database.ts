@@ -5,7 +5,6 @@ export type OrderStatus = 'pending' | 'pending_payment' | 'paid' | 'confirmed' |
 export type FulfillmentType = 'delivery' | 'pickup' | 'in_store';
 export type PaymentMethod = 'pix_mp' | 'card_mp' | 'whatsapp_combine' | 'pos_pix_mp' | 'pos_card_presential' | 'pos_cash' | 'pix' | 'credit_card' | 'debit_card' | 'cash';
 export type PaymentStatus = 'pending' | 'approved' | 'rejected' | 'refunded' | 'cancelled';
-
 export interface AdminUser {
   id: string;
   user_id: string;
@@ -81,6 +80,7 @@ export interface Product {
   slug: string;
   brand: string | null;
   description: string | null;
+  variant_cta_label?: string | null;
   is_featured: boolean;
   is_flash_sale: boolean;
   is_bestseller: boolean;
