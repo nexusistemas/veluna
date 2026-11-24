@@ -10,6 +10,7 @@ interface OrderDetailsModalProps {
   pickupAddress: string | null;
   onClose: () => void;
   onOrderUpdated: () => void;
+  onOrderDeleted: () => void;
 }
 
 export default function OrderDetailsModal({
@@ -18,6 +19,7 @@ export default function OrderDetailsModal({
   pickupAddress,
   onClose,
   onOrderUpdated,
+  onOrderDeleted,
 }: OrderDetailsModalProps) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copiedAddr, setCopiedAddr] = useState(false);
@@ -163,6 +165,7 @@ export default function OrderDetailsModal({
           storeName={storeName}
           pickupAddress={pickupAddress}
           onOrderUpdated={onOrderUpdated}
+          onOrderDeleted={onOrderDeleted}
           onError={setErrorMsg}
         />
       </div>

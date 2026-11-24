@@ -1,4 +1,4 @@
-import { MessageCircle } from 'lucide-react';
+import { Loader2, MessageCircle, Trash2 } from 'lucide-react';
 import { formatBRL, onlyDigits } from '../../../lib/formatters';
 import type { AdminOrderWithItems } from '../../../services/ordersAdminService';
 import {
@@ -12,6 +12,8 @@ interface OrderListCardProps {
   storeName: string;
   pickupAddress: string | null;
   onManage: (orderId: string) => void;
+  onDelete: (order: AdminOrderWithItems) => void;
+  deleting?: boolean;
 }
 
 const STATUS_BADGE: Record<OrderStatus, { label: string; cls: string }> = {
@@ -33,6 +35,8 @@ export default function OrderListCard({
   storeName,
   pickupAddress,
   onManage,
+  onDelete,
+  deleting = false,
 }: OrderListCardProps) {
   const badge = STATUS_BADGE[order.status] ?? {
     label: order.status,
@@ -115,6 +119,16 @@ export default function OrderListCard({
           className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-stone-200 bg-stone-50 px-3 text-xs font-bold text-stone-800 hover:border-brand-200 hover:text-brand"
         >
           Gerenciar
+        </button>
+        <button
+          type="button"
+          disabled={deleting}
+          onClick={() => onDelete(order)}
+          aria-label={`Excluir pedido #${order.order_number} definitivamente`}
+          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 text-xs font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+        >
+          {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+          <span>Excluir</span>
         </button>
       </div>
     </article>

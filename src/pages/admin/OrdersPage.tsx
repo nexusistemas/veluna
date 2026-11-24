@@ -1,32 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Bell,
-  Loader2,
-  RefreshCw,
-  Search,
-  ShoppingBag,
-  Volume2,
-  VolumeX,
-} from 'lucide-react';
+import { Bell, Loader2, RefreshCw, Search, ShoppingBag, Volume2, VolumeX } from 'lucide-react';
 import OrderDetailsModal from '../../components/admin/orders/OrderDetailsModal';
 import OrderListCard from '../../components/admin/orders/OrderListCard';
 import { useStoreSettings } from '../../contexts/StoreSettingsContext';
 import { onlyDigits } from '../../lib/formatters';
 import { isSoundMuted, playNewOrderChime, setSoundMuted } from '../../lib/soundAlert';
 import { isSupabaseConfigured, supabase } from '../../lib/supabase';
-import { listOrdersAdmin, type AdminOrderWithItems } from '../../services/ordersAdminService';
+import { deleteOrderPermanentlyAdmin, listOrdersAdmin, type AdminOrderWithItems } from '../../services/ordersAdminService';
 import type { OrderStatus } from '../../types/database';
 
 type ChannelFilter = 'all' | 'online' | 'pos';
 type StatusTab = 'all' | 'pending' | 'paid_prep' | 'logistics' | 'completed' | 'cancelled';
 
 const STATUS_TABS: Array<{ id: StatusTab; label: string }> = [
-  { id: 'all', label: 'Todos' },
-  { id: 'pending', label: 'Pendentes' },
-  { id: 'paid_prep', label: 'Pagos / Separar' },
-  { id: 'logistics', label: 'Entrega / Retirada' },
-  { id: 'completed', label: 'Concluídos' },
-  { id: 'cancelled', label: 'Cancelados' },
+  { id: 'all', label: 'Todos' }, { id: 'pending', label: 'Pendentes' },
+  { id: 'paid_prep', label: 'Pagos / Separar' }, { id: 'logistics', label: 'Entrega / Retirada' },
+  { id: 'completed', label: 'Concluídos' }, { id: 'cancelled', label: 'Cancelados' },
 ];
 
 function matchesStatusTab(status: OrderStatus, tab: StatusTab): boolean {
@@ -46,6 +35,7 @@ export default function OrdersPage() {
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all');
   const [statusTab, setStatusTab] = useState<StatusTab>('all');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [muted, setMuted] = useState<boolean>(() => isSoundMuted());
   const [newOrderNotice, setNewOrderNotice] = useState(false);
 
@@ -93,6 +83,23 @@ export default function OrdersPage() {
     setMuted(next);
     setSoundMuted(next);
     if (!next) playNewOrderChime();
+  };
+
+  const handleDeleteOrder = async (order: AdminOrderWithItems) => {
+    const ok = window.confirm(
+      `Excluir definitivamente o Pedido #${order.order_number} (${order.customer_name})? Esta ação não pode ser desfeita.`,
+    );
+    if (!ok) return;
+    setDeletingId(order.id);
+    try {
+      await deleteOrderPermanentlyAdmin(order.id);
+      if (selectedOrderId === order.id) setSelectedOrderId(null);
+      await loadOrders(true);
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Erro ao excluir pedido.');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const filtered = useMemo(() => {
@@ -206,9 +213,7 @@ export default function OrdersPage() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16 text-brand">
-          <Loader2 className="h-7 w-7 animate-spin" />
-        </div>
+        <div className="flex justify-center py-16 text-brand"><Loader2 className="h-7 w-7 animate-spin" /></div>
       ) : filtered.length === 0 ? (
         <div className="rounded-3xl border border-stone-200 bg-white p-8 text-center space-y-1">
           <p className="text-sm font-bold text-stone-800">Nenhum pedido encontrado</p>
@@ -218,22 +223,17 @@ export default function OrdersPage() {
         <div className="space-y-2.5">
           {filtered.map((order) => (
             <OrderListCard
-              key={order.id}
-              order={order}
-              storeName={settings.store_name}
-              pickupAddress={settings.pickup_address}
-              onManage={setSelectedOrderId}
+              key={order.id} order={order} storeName={settings.store_name} pickupAddress={settings.pickup_address}
+              onManage={setSelectedOrderId} onDelete={(ord) => void handleDeleteOrder(ord)} deleting={deletingId === order.id}
             />
           ))}
         </div>
       )}
 
       <OrderDetailsModal
-        order={selectedOrder}
-        storeName={settings.store_name}
-        pickupAddress={settings.pickup_address}
-        onClose={() => setSelectedOrderId(null)}
-        onOrderUpdated={() => void loadOrders(true)}
+        order={selectedOrder} storeName={settings.store_name} pickupAddress={settings.pickup_address}
+        onClose={() => setSelectedOrderId(null)} onOrderUpdated={() => void loadOrders(true)}
+        onOrderDeleted={() => { setSelectedOrderId(null); void loadOrders(true); }}
       />
     </div>
   );

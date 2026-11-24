@@ -103,6 +103,12 @@ export async function approveOrderPaymentManuallyAdmin(orderId: string): Promise
   triggerOrderEmailNotification(orderId, 'payment_approved');
 }
 
+export async function deleteOrderPermanentlyAdmin(orderId: string): Promise<void> {
+  if (!isSupabaseConfigured) throw new Error('Supabase não configurado.');
+  const { error } = await supabase.from('orders').delete().eq('id', orderId);
+  if (error) throw new Error(error.message);
+}
+
 export async function createPosOrderAdmin(
   payload: CreateOrderPayload,
 ): Promise<CreateOrderResult> {

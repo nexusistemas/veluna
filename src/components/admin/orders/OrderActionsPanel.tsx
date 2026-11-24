@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { AlertTriangle, CheckCircle2, Loader2, MessageCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2, MessageCircle, Trash2 } from 'lucide-react';
 import { onlyDigits } from '../../../lib/formatters';
 import {
   approveOrderPaymentManuallyAdmin,
+  deleteOrderPermanentlyAdmin,
   updateOrderStatusAdmin,
   type AdminOrderWithItems,
 } from '../../../services/ordersAdminService';
@@ -18,6 +19,7 @@ interface OrderActionsPanelProps {
   storeName: string;
   pickupAddress: string | null;
   onOrderUpdated: () => void;
+  onOrderDeleted: () => void;
   onError: (message: string | null) => void;
 }
 
@@ -35,10 +37,12 @@ export default function OrderActionsPanel({
   storeName,
   pickupAddress,
   onOrderUpdated,
+  onOrderDeleted,
   onError,
 }: OrderActionsPanelProps) {
   const [busy, setBusy] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const hasPhone = onlyDigits(order.customer_phone ?? '').length >= 10;
 
@@ -46,20 +50,11 @@ export default function OrderActionsPanel({
     ? buildStoreToCustomerWaUrl(
         order.customer_phone ?? '',
         buildOrderReceiptText({
-          storeName,
-          orderNumber: order.order_number,
-          customerName: order.customer_name,
-          items: order.order_items,
-          subtotal: order.subtotal,
-          discountAmount: order.discount_amount,
-          shippingFee: order.shipping_fee,
-          total: order.total,
-          fulfillmentType: order.fulfillment_type,
-          shippingAddress: order.shipping_address,
-          pickupAddress,
-          paymentMethod: order.payment_method,
-          paymentStatus: order.payment_status,
-          notes: order.notes,
+          storeName, orderNumber: order.order_number, customerName: order.customer_name,
+          items: order.order_items, subtotal: order.subtotal, discountAmount: order.discount_amount,
+          shippingFee: order.shipping_fee, total: order.total, fulfillmentType: order.fulfillment_type,
+          shippingAddress: order.shipping_address, pickupAddress,
+          paymentMethod: order.payment_method, paymentStatus: order.payment_status, notes: order.notes,
         }),
       )
     : '';
@@ -68,12 +63,8 @@ export default function OrderActionsPanel({
     ? buildStoreToCustomerWaUrl(
         order.customer_phone ?? '',
         buildOrderStatusUpdateText({
-          storeName,
-          orderNumber: order.order_number,
-          customerName: order.customer_name,
-          status: order.status,
-          fulfillmentType: order.fulfillment_type,
-          pickupAddress,
+          storeName, orderNumber: order.order_number, customerName: order.customer_name,
+          status: order.status, fulfillmentType: order.fulfillment_type, pickupAddress,
         }),
       )
     : '';
@@ -100,6 +91,19 @@ export default function OrderActionsPanel({
       onOrderUpdated();
     } catch (err) {
       onError(err instanceof Error ? err.message : 'Erro ao atualizar status do pedido.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDeletePermanent = async () => {
+    setBusy(true);
+    onError(null);
+    try {
+      await deleteOrderPermanentlyAdmin(order.id);
+      onOrderDeleted();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : 'Erro ao excluir pedido definitivamente.');
     } finally {
       setBusy(false);
     }
@@ -209,6 +213,32 @@ export default function OrderActionsPanel({
           )}
         </div>
       )}
+      <div className="border-t border-stone-100 pt-3">
+        {!confirmDelete ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setConfirmDelete(true)}
+            className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl border border-rose-300 bg-white px-4 text-xs font-bold text-rose-700 hover:bg-rose-50"
+          >
+            <Trash2 className="h-4 w-4" /> Excluir Pedido Definitivamente
+          </button>
+        ) : (
+          <div className="rounded-2xl border border-rose-300 bg-rose-50 p-3 space-y-2 text-center">
+            <p className="text-xs font-bold text-rose-900">
+              Excluir o Pedido #{order.order_number} para sempre? Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setConfirmDelete(false)} className="min-h-[44px] flex-1 rounded-xl border border-stone-200 bg-white text-xs font-bold text-stone-700">
+                Voltar
+              </button>
+              <button type="button" disabled={busy} onClick={() => void handleDeletePermanent()} className="min-h-[44px] flex-1 rounded-xl bg-rose-600 text-xs font-bold text-white hover:bg-rose-700">
+                Sim, Excluir
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
