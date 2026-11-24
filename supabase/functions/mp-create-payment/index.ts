@@ -1,10 +1,7 @@
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
+import { dispatchOrderEmails } from '../_shared/emailNotifier.ts';
 import {
-  createServiceClient,
-  getEnv,
-  isRequestAdmin,
-  mapMpStatusToPaymentStatus,
-  updateOrderPaymentSafe,
+  createServiceClient, getEnv, isRequestAdmin, mapMpStatusToPaymentStatus, updateOrderPaymentSafe,
 } from '../_shared/mpHelpers.ts';
 import { notifyOrderWhatsapp } from '../_shared/whatsappNotifier.ts';
 
@@ -169,7 +166,10 @@ Deno.serve(async (req: Request) => {
       await updateOrderPaymentSafe(serviceClient, order, paymentStatus, { mp_payment_id: mpPaymentId });
 
       if (paymentStatus === 'approved' && order.payment_status !== 'approved') {
-        await notifyOrderWhatsapp({ serviceClient, orderId: order.id, event: 'payment_approved' }).catch(() => {});
+        await Promise.all([
+          notifyOrderWhatsapp({ serviceClient, orderId: order.id, event: 'payment_approved' }).catch(() => {}),
+          dispatchOrderEmails(serviceClient, { orderId: order.id, event: 'payment_approved' }).catch(() => {}),
+        ]);
       }
 
       return jsonResponse({
@@ -231,7 +231,10 @@ Deno.serve(async (req: Request) => {
       if (paymentStatus !== order.payment_status) {
         orderStatus = await updateOrderPaymentSafe(serviceClient, order, paymentStatus);
         if (paymentStatus === 'approved') {
-          await notifyOrderWhatsapp({ serviceClient, orderId: order.id, event: 'payment_approved' }).catch(() => {});
+          await Promise.all([
+            notifyOrderWhatsapp({ serviceClient, orderId: order.id, event: 'payment_approved' }).catch(() => {}),
+            dispatchOrderEmails(serviceClient, { orderId: order.id, event: 'payment_approved' }).catch(() => {}),
+          ]);
         }
       }
 

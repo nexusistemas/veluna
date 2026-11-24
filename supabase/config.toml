@@ -12,3 +12,6 @@ verify_jwt = false
 
 [functions.admin-customers]
 verify_jwt = false
+
+[functions.notify-order-email]
+verify_jwt = false

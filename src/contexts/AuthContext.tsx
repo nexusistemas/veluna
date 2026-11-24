@@ -9,7 +9,7 @@ const UNAUTHORIZED_ADMIN_ERROR =
   'Este e-mail não possui permissão de administradora na Veluna Cosméticos.';
 const SUPABASE_MISSING_ERROR =
   'Supabase ainda não configurado. Preencha VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no arquivo .env.';
-const ADMIN_LOGIN_DOMAIN = 'veluna.nexusistemas.com.app';
+const ADMIN_LOGIN_DOMAIN = 'veluna.nexusistemas.app.br';
 
 export function normalizeAdminIdentifier(rawInput: string): string {
   const cleaned = rawInput.trim().toLowerCase();

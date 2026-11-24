@@ -15,6 +15,7 @@ import { cleanCep, formatCep } from '../../lib/geoCep';
 import type { ResolvedGpsLocation } from '../../lib/geoMaps';
 import { buildCheckoutCustomerProfilePayload, buildOnlineOrderPayload } from '../../lib/checkoutPayload';
 import { saveMyCustomerProfile } from '../../services/customerAccountService';
+import { triggerOrderEmailNotification } from '../../services/emailNotificationService';
 import { listActiveDeliveryZonesPublic } from '../../services/logisticsAdminService';
 import { calculateShippingQuote, type ShippingCalculationResult } from '../../services/shippingService';
 import { submitStoreOrder } from '../../services/storePublicService';
@@ -172,6 +173,7 @@ export default function CheckoutPage() {
         ).catch(() => {});
       }
       triggerAutoWhatsappNotification(created.order_id, created.public_access_token, 'order_created');
+      triggerOrderEmailNotification(created.order_id, 'order_created', created.public_access_token);
       clearCart();
       navigate(`/pedido/${created.order_id}?token=${encodeURIComponent(created.public_access_token)}`, { replace: true });
     } catch (err) {

@@ -2,6 +2,8 @@ import { onlyDigits } from '../lib/formatters';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import type { PrivateSecrets, StoreSettings } from '../types/database';
 
+export const DEFAULT_RESEND_FROM_EMAIL = 'Veluna Cosméticos <pedidos@veluna.nexusistemas.app.br>';
+
 const EMPTY_SECRETS: PrivateSecrets = {
   id: 1,
   mp_access_token: null,
@@ -9,6 +11,11 @@ const EMPTY_SECRETS: PrivateSecrets = {
   mp_point_device_id: null,
   whatsapp_webhook_url: null,
   whatsapp_webhook_token: null,
+  email_admin_enabled: true,
+  email_customer_enabled: true,
+  admin_notification_email: '',
+  resend_from_email: DEFAULT_RESEND_FROM_EMAIL,
+  resend_api_key: '',
   updated_at: '',
 };
 
@@ -21,6 +28,11 @@ function normalizeSecretsRow(raw: Partial<PrivateSecrets> | null): PrivateSecret
     mp_point_device_id: raw.mp_point_device_id ?? null,
     whatsapp_webhook_url: raw.whatsapp_webhook_url ?? null,
     whatsapp_webhook_token: raw.whatsapp_webhook_token ?? null,
+    email_admin_enabled: raw.email_admin_enabled ?? true,
+    email_customer_enabled: raw.email_customer_enabled ?? true,
+    admin_notification_email: raw.admin_notification_email ?? '',
+    resend_from_email: raw.resend_from_email?.trim() || DEFAULT_RESEND_FROM_EMAIL,
+    resend_api_key: raw.resend_api_key ?? '',
     updated_at: raw.updated_at ?? '',
   };
 }
@@ -109,6 +121,21 @@ export async function savePrivateSecretsAdmin(payload: Partial<PrivateSecrets>):
   }
   if (payload.whatsapp_webhook_token !== undefined) {
     upsertBody.whatsapp_webhook_token = payload.whatsapp_webhook_token?.trim() || null;
+  }
+  if (payload.email_admin_enabled !== undefined) {
+    upsertBody.email_admin_enabled = Boolean(payload.email_admin_enabled);
+  }
+  if (payload.email_customer_enabled !== undefined) {
+    upsertBody.email_customer_enabled = Boolean(payload.email_customer_enabled);
+  }
+  if (payload.admin_notification_email !== undefined) {
+    upsertBody.admin_notification_email = payload.admin_notification_email.trim();
+  }
+  if (payload.resend_from_email !== undefined) {
+    upsertBody.resend_from_email = payload.resend_from_email.trim() || DEFAULT_RESEND_FROM_EMAIL;
+  }
+  if (payload.resend_api_key !== undefined) {
+    upsertBody.resend_api_key = payload.resend_api_key.trim();
   }
 
   const { error } = await supabase

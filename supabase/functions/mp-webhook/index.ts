@@ -1,4 +1,5 @@
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
+import { dispatchOrderEmails } from '../_shared/emailNotifier.ts';
 import {
   createServiceClient,
   mapMpStatusToPaymentStatus,
@@ -89,11 +90,10 @@ Deno.serve(async (req: Request) => {
     });
 
     if (nextPaymentStatus === 'approved' && !wasApproved) {
-      await notifyOrderWhatsapp({
-        serviceClient,
-        orderId: order.id,
-        event: 'payment_approved',
-      }).catch(() => {});
+      await Promise.all([
+        notifyOrderWhatsapp({ serviceClient, orderId: order.id, event: 'payment_approved' }).catch(() => {}),
+        dispatchOrderEmails(serviceClient, { orderId: order.id, event: 'payment_approved' }).catch(() => {}),
+      ]);
     }
 
     return jsonResponse({ received: true, updated: true, payment_status: nextPaymentStatus }, 200);

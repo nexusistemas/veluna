@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, Loader2, Settings } from 'lucide-react';
 import CustomerAuthConfigCard from '../../components/admin/settings/CustomerAuthConfigCard';
+import EmailNotificationCard from '../../components/admin/settings/EmailNotificationCard';
 import MercadoPagoConfigCard from '../../components/admin/settings/MercadoPagoConfigCard';
 import StoreProfileCard from '../../components/admin/settings/StoreProfileCard';
 import WhatsappAutomationCard from '../../components/admin/settings/WhatsappAutomationCard';
 import { useStoreSettings } from '../../contexts/StoreSettingsContext';
-import { fetchPrivateSecretsAdmin } from '../../services/settingsAdminService';
+import {
+  DEFAULT_RESEND_FROM_EMAIL,
+  fetchPrivateSecretsAdmin,
+} from '../../services/settingsAdminService';
 import type { PrivateSecrets } from '../../types/database';
 
 const INITIAL_SECRETS: PrivateSecrets = {
@@ -15,6 +19,11 @@ const INITIAL_SECRETS: PrivateSecrets = {
   mp_point_device_id: null,
   whatsapp_webhook_url: null,
   whatsapp_webhook_token: null,
+  email_admin_enabled: true,
+  email_customer_enabled: true,
+  admin_notification_email: '',
+  resend_from_email: DEFAULT_RESEND_FROM_EMAIL,
+  resend_api_key: '',
   updated_at: '',
 };
 
@@ -87,6 +96,7 @@ export default function SettingsPage() {
             secrets={secrets}
             onSaved={handleSavedAll}
           />
+          <EmailNotificationCard secrets={secrets} onSaved={handleSavedAll} />
         </div>
       )}
     </div>

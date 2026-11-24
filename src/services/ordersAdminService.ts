@@ -1,4 +1,5 @@
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { triggerOrderEmailNotification } from './emailNotificationService';
 import type {
   CreateOrderPayload,
   CreateOrderResult,
@@ -82,6 +83,9 @@ export async function updateOrderStatusAdmin(
     .eq('id', orderId);
 
   if (error) throw new Error(error.message);
+  if (status !== 'pending_payment') {
+    triggerOrderEmailNotification(orderId, status === 'paid' ? 'payment_approved' : 'status_updated');
+  }
 }
 
 export async function approveOrderPaymentManuallyAdmin(orderId: string): Promise<void> {
@@ -96,6 +100,7 @@ export async function approveOrderPaymentManuallyAdmin(orderId: string): Promise
     .eq('id', orderId);
 
   if (error) throw new Error(error.message);
+  triggerOrderEmailNotification(orderId, 'payment_approved');
 }
 
 export async function createPosOrderAdmin(
