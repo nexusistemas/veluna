@@ -18,7 +18,7 @@ export default function StoreHeader({
   hideSearch = false,
 }: StoreHeaderProps) {
   const { settings } = useStoreSettings();
-  const { totalItems, openCart } = useCart();
+  const { totalItems, openCart, cartPulse } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [localQuery, setLocalQuery] = useState(searchQuery ?? '');
@@ -127,7 +127,9 @@ export default function StoreHeader({
               type="button"
               onClick={openCart}
               aria-label={`Abrir sacola com ${totalItems} itens`}
-              className="relative flex h-11 min-w-[44px] items-center justify-center gap-1.5 rounded-2xl bg-brand px-3 text-white shadow-sm transition hover:bg-brand-700 active:scale-95"
+              className={`relative flex h-11 min-w-[44px] items-center justify-center gap-1.5 rounded-2xl bg-brand px-3 text-white shadow-sm transition hover:bg-brand-700 active:scale-95 ${
+                cartPulse ? 'animate-veluna-pop ring-4 ring-brand/30' : ''
+              }`}
             >
               <ShoppingBag className="h-5 w-5" aria-hidden="true" />
               {totalItems > 0 && (

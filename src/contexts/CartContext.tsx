@@ -1,16 +1,16 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { validateCouponStore } from '../services/storePublicService';
 import type { DiscountType } from '../types/database';
 
 const CART_STORAGE_KEY = 'veluna_cart_v1';
+
+export interface CartAddedFeedback {
+  id: number;
+  productName: string;
+  variantName: string;
+  imageUrl: string;
+  quantity: number;
+}
 
 export interface CartItem {
   variantId: string;
@@ -55,6 +55,9 @@ interface CartContextValue {
   subtotal: number;
   discountAmount: number;
   isFreeShippingCoupon: boolean;
+  lastAdded: CartAddedFeedback | null;
+  cartPulse: boolean;
+  dismissAddedFeedback: () => void;
 }
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
@@ -82,6 +85,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>(initial.items);
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(initial.appliedCoupon);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [lastAdded, setLastAdded] = useState<CartAddedFeedback | null>(null);
+  const [cartPulse, setCartPulse] = useState(false);
+  const toastTimerRef = useRef<number | null>(null);
+  const pulseTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+      if (pulseTimerRef.current) window.clearTimeout(pulseTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -95,8 +109,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const openCart = useCallback(() => setIsCartOpen(true), []);
   const closeCart = useCallback(() => setIsCartOpen(false), []);
 
+  const dismissAddedFeedback = useCallback(() => setLastAdded(null), []);
+
   const addItem = useCallback(
-    (incoming: Omit<CartItem, 'quantity'>, qty = 1, openDrawer = true) => {
+    (incoming: Omit<CartItem, 'quantity'>, qty = 1, openDrawer = false) => {
       if (incoming.maxStock <= 0) return;
       const safeAdd = Math.max(1, Math.trunc(qty));
       setItems((prev) => {
@@ -109,6 +125,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
         return [...prev, { ...incoming, quantity: Math.min(incoming.maxStock, safeAdd) }];
       });
+
+      setLastAdded({
+        id: Date.now(),
+        productName: incoming.productName,
+        variantName: incoming.variantName,
+        imageUrl: incoming.imageUrl,
+        quantity: safeAdd,
+      });
+      setCartPulse(true);
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+      if (pulseTimerRef.current) window.clearTimeout(pulseTimerRef.current);
+      toastTimerRef.current = window.setTimeout(() => setLastAdded(null), 2800);
+      pulseTimerRef.current = window.setTimeout(() => setCartPulse(false), 550);
+
       if (openDrawer) setIsCartOpen(true);
     },
     [],
@@ -181,21 +211,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   return (
     <CartContext.Provider
       value={{
-        items,
-        isCartOpen,
-        openCart,
-        closeCart,
-        addItem,
-        updateQuantity,
-        removeItem,
-        clearCart,
-        appliedCoupon,
-        applyCouponCode,
-        removeCoupon,
-        totalItems,
-        subtotal,
-        discountAmount,
-        isFreeShippingCoupon,
+        items, isCartOpen, openCart, closeCart, addItem, updateQuantity, removeItem, clearCart,
+        appliedCoupon, applyCouponCode, removeCoupon, totalItems, subtotal, discountAmount,
+        isFreeShippingCoupon, lastAdded, cartPulse, dismissAddedFeedback,
       }}
     >
       {children}

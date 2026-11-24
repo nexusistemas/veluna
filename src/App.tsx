@@ -2,6 +2,7 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import AdminLayout from './components/admin/AdminLayout';
 import ProtectedRoute from './components/admin/ProtectedRoute';
 import CartDrawer from './components/store/CartDrawer';
+import FloatingCartBar from './components/store/FloatingCartBar';
 import OAuthRedirectListener from './components/store/OAuthRedirectListener';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
@@ -33,6 +34,7 @@ export default function App() {
           <OAuthRedirectListener />
           <CartProvider>
             <CartDrawer />
+            <FloatingCartBar />
             <Routes>
               <Route path="/" element={<StoreHomePage />} />
               <Route path="/produto/:slug" element={<ProductDetailPage />} />
